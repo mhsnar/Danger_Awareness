@@ -9,9 +9,10 @@ import cvxpy as cp
 # Robot Model
 n = 100
 Prediction_Horizon = 10
+deltaT=0.2
 
 A_R = np.array([1.0])
-B_R = np.array([1.0]).reshape(-1,1)
+B_R = np.array([deltaT]).reshape(-1,1)
 C_R = np.eye(1)
 D_R = np.zeros((1, 1))
 
@@ -21,7 +22,7 @@ NoO_R=C_R.shape[0]
 #------------------------------------------
 # Human Model
 A_H = np.array([1.0])
-B_H = np.array([1.0]).reshape(-1,1)
+B_H = np.array([deltaT]).reshape(-1,1)
 C_H = np.eye(1)
 D_H = np.zeros((1, 1))
 
@@ -34,33 +35,33 @@ NoO_H=C_H.shape[0]
 #Initials=
 betas=np.array([0,
                 1])
-beta=1
-P_t=np.array([0.5])
+beta=np.array([1]).reshape(-1,1)
+P_t=np.array([0.5]).reshape(-1,1)
 P_ts=np.array([0,
                 1])
 P_x_H=1
 print(betas)
 
-x_H = np.array([1.0])  
-g_H = np.array([5.0])  
-g_R = np.array([80.0])  
-v_R = np.array([2.0])  
-v_h = np.array([0.5])  
-w_H = np.array([0.5])  
+x_H = np.ones((NoS_H,n))  
+g_H = np.array([5.0]).reshape(-1,1)  
+g_R = np.array([80.0]).reshape(-1,1)  
+v_R = np.array([2.0]).reshape(-1,1)  
+v_h = np.array([0.5]).reshape(-1,1)  
+w_H = np.array([0.5]).reshape(-1,1)  
 
-P_th = np.array([0.1])  
-T_R = np.array([5.0])  
+P_th = np.array([0.1]).reshape(-1,1)  
+T_R = np.array([5.0]).reshape(-1,1)  
 
-gamma = np.array([100.0])  
-eta_1 = np.array([1.0])  
-eta_2 = np.array([1.0]) 
-theta_1 = np.array([1.0])   
-theta_2 = np.array([0.5])   
-theta_3 = np.array([2.5])   
-theta_4 = np.array([8.0*10**-3])   
-theta_5 = np.array([100.0]) 
-theta_6 = np.array([6.0*10**-3]) 
-x_R = np.array([1])  
+gamma = np.array([100.0]).reshape(-1,1)  
+eta_1 = np.array([1.0]).reshape(-1,1)  
+eta_2 = np.array([1.0]).reshape(-1,1) 
+theta_1 = np.array([1.0]).reshape(-1,1)   
+theta_2 = np.array([0.5]).reshape(-1,1)   
+theta_3 = np.array([2.5]).reshape(-1,1)   
+theta_4 = np.array([8.0*10**-3]).reshape(-1,1)   
+theta_5 = np.array([100.0]).reshape(-1,1) 
+theta_6 = np.array([6.0*10**-3]).reshape(-1,1) 
+x_R = np.array([1]).reshape(-1,1)  
 
 # # Generate the estimation and noise samples
 mean = 0  # Zero mean for the Gaussian noise
@@ -124,33 +125,56 @@ def Probability_of_Collision():
     return P_Coll
 
 flag=0
-u_app_H=[]
-u_app_R=[]
+u_app_H = np.zeros((NoI_H, n))
+u_app_R = np.zeros((NoI_R, n))
 for i in range(n):
-
+     
     #Updates
+    x_H0=x_H[:, i]
+    x_R0=x_R[:, i]
     # Generate zero-mean Gaussian noise
     epsilon = np.random.normal(mean, std_deviation, num_samples)
-    hat_x_R=x_R+epsilon   
+    hat_x_R=x_R0+epsilon   
 
     # Human’s action objective function
-    u_H = cp.Variable((NoI_H , 1))
-    norm_x_H_g_H = np.linalg.norm(x_H - g_H)**2
-    norm_u_H = np.linalg.norm(u_H)**2
+    # u_H = cp.Variable((NoI_H , 1))
+    u_H_values = np.array([-2, -1, 0, 1, 2])  # Possible values for u_H
+    # Define binary variables
+    binary_vars = cp.Variable((NoI_H, len(u_H_values)), boolean=True)
+    # Define u_H using matrix multiplication
+    u_H = binary_vars @ u_H_values
+
+
+
+
+    norm_x_H_g_H = cp.norm(x_H0 - g_H,'fro')**2
+    norm_u_H = cp.norm(u_H,'fro')**2
     QH_g = theta_3 * norm_x_H_g_H + theta_4 * norm_u_H
-    QH_s=theta_5*np.exp(theta_6*np.linalg.norm(x_H-hat_x_R)**2)
-    sigma_H = QH_s
-    problem = cp.Problem(cp.Minimize(sigma_H))
-    problem.solve(solver=cp.OSQP)
+    QH_s=theta_5*cp.exp(-theta_6*cp.norm(x_H0-hat_x_R,'fro')**2)
+    sigma_H = eta_1*QH_g+beta*eta_2*QH_s
+
+ 
+ 
+    objective = cp.Minimize(sigma_H)  # Minimize the sum of u_H values
+
+    # Constraints (ensure each row selects exactly one value from u_H_values)
+    constraints = [  cp.sum(binary_vars, axis=1) == 1]
+
+    # Define the problem
+    problem = cp.Problem(objective, constraints)
+
+    problem.solve(solver=cp.CBC)
+
     if problem.status != cp.OPTIMAL:
         flag += 1
-    u_app_H[:, i] = u_R.value[:NoI_R, 0]
+    print(u_H.value)
+    u_app_H[:, i] = u_H.value[:NoI_H, 0]
     x_H[:, i+1] = A_H @ x_H[:, i] + B_H @ u_app_H[:, i]
     
     # Robot’s goal objective function
     u_R = cp.Variable((NoI_R , 1))
-    norm_x_R_g_R = np.linalg.norm(x_R - g_R)**2
-    norm_u_R = np.linalg.norm(u_R)**2
+    norm_x_R_g_R = cp.norm(x_R0 - g_R,'fro')**2
+    norm_u_R = cp.norm(u_R,'fro')**2
     QR_g = theta_1 * norm_x_R_g_R + theta_4 * norm_u_R
     sigma_R = QR_g
     constraints_R=np.zeros_like(Probability_of_Collision())
