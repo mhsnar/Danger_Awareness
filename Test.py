@@ -19,7 +19,38 @@ D_R = np.zeros((1, 1))
 NoI_R=B_R.shape[1]
 NoS_R=A_R.shape[0]
 NoO_R=C_R.shape[0]
+Abar = np.array([A_R])
+
+if A_R.shape[0]==1:
+    for i in range(2, Prediction_Horizon + 1):
+        Abar = np.vstack((Abar, A_R**i))
+
+    Bbar = np.zeros((NoS_R * Prediction_Horizon, NoI_R * Prediction_Horizon))
+
+# Loop to fill Bbar with the appropriate blocks
+    for i in range(1, Prediction_Horizon + 1):
+      for j in range(1, i + 1):
+        # Compute A_R^(i-j)
+        A_power = A_R ** (i - j)
+        
+        # Compute the block (A_power * B_R), since B_R is scalar we multiply directly
+        block = A_power * B_R
+
+        # Calculate the indices for insertion
+        row_indices = slice((i - 1) * NoS_R, i * NoS_R)
+        col_indices = slice((j - 1) * NoI_R, j * NoI_R)
+
+        # Insert the block into the appropriate position in Bbar
+        Bbar[row_indices, col_indices] = block
+else:
+    Abar = np.vstack([np.linalg.matrix_power(A_R, i) for i in range(1, Prediction_Horizon+1)])
+    Bbar = np.zeros((NoS_R * Prediction_Horizon, NoI_R * Prediction_Horizon))
+
+    for i in range(1, Prediction_Horizon + 1):
+        for j in range(1, i + 1):
+            Bbar[(i-1)*NoS_R:i*NoS_R, (j-1)*NoI_R:j*NoI_R] = np.linalg.matrix_power(A_R, i-j) @ B_R
 #------------------------------------------
+print(Bbar)
 # Human Model
 A_H = np.array([1.0])
 B_H = np.array([deltaT]).reshape(-1,1)
@@ -44,7 +75,8 @@ print(betas)
 
 x_H = np.ones((NoS_H,n))  
 g_H = np.array([5.0]).reshape(-1,1)  
-g_R = np.array([80.0]).reshape(-1,1)  
+g_R = np.array([80.0]).reshape(-1,1) 
+g_R_pr=np.tile(g_R, Prediction_Horizon) 
 v_R = np.array([2.0]).reshape(-1,1)  
 v_h = np.array([0.5]).reshape(-1,1)  
 w_H = np.array([0.5]).reshape(-1,1)  
@@ -72,7 +104,7 @@ num_samples = 1  # Number of samples
 
 # # Safety objective function
 # Human Action Prediction
-def Human_Action_Prediction(w_H,gamma,QH_g,QH_s,beta,betas):
+def Human_Action_Prediction(u_H,w_H,gamma,QH_g,QH_s,beta,betas):
    
    for i in range(betas.shape[0]):
       sum_P_d+=np.exp(-gamma * (QH_g + betas[i] * QH_s))
@@ -89,32 +121,61 @@ def Human_Action_Prediction(w_H,gamma,QH_g,QH_s,beta,betas):
    print(P_r)
 
 #--------------------------------------------------
+
+def  human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta):
+
+        binary_vars = cp.Variable((NoI_H, len(u_H_values)), boolean=True)
+        u_H = binary_vars @ u_H_values
+        QH_g=human_s_goal(u_H,x_H0,g_H,theta_3,theta_4)
+        QH_s=human_s_safety(x_H0,hat_x_R,theta_5,theta_6)
+        sigma_H = eta_1*QH_g+beta*eta_2*QH_s
+        objective = cp.Minimize(sigma_H)  # Minimize the sum of u_H values
+        # Constraints (ensure each row selects exactly one value from u_H_values)
+        constraints = [  cp.sum(binary_vars, axis=1) == 1]
+        problem = cp.Problem(objective, constraints)
+        problem.solve(solver=cp.CBC)
+        if problem.status != cp.OPTIMAL:
+            flag += 1
+        print(u_H.value)
+        return u_H.value[:NoI_H, 0]
 # Robot’s Belief About the Human’s Danger Awareness
 def Robot_s_Belief_About_HDA(w_H,gamma,QH_g,QH_s,beta,betas,P_t,P_ts):
      sum_P_P_t=0.0
      for i in range(betas.shape[0]):
-         sum_P_P_t+=Human_Action_Prediction(w_H,gamma,QH_g,QH_s,betas[i],betas)*P_ts[i]
+         sum_P_P_t+=Human_Action_Prediction(u_H,w_H,gamma,QH_g,QH_s,betas[i],betas)*P_ts[i]
 
-     P_t=Human_Action_Prediction(w_H,gamma,QH_g,QH_s,beta,betas)*P_t/sum_P_P_t
+     P_t=Human_Action_Prediction(u_H,w_H,gamma,QH_g,QH_s,beta,betas)*P_t/sum_P_P_t
      P_ts=np.zeros_like(P_ts)
      for i in range(betas.shape[0]):
-         P_ts[i]= Human_Action_Prediction(w_H,gamma,QH_g,QH_s,beta[i],betas)*P_ts[i]/sum_P_P_t
+         P_ts[i]= Human_Action_Prediction(u_H,w_H,gamma,QH_g,QH_s,betas[i],betas)*P_ts[i]/sum_P_P_t
      return P_t, P_ts
 
-
+def human_s_goal(u_H,x_H0,g_H,theta_3,theta_4):
+        norm_x_H_g_H = cp.norm(x_H0 - g_H,'fro')**2
+        norm_u_H = cp.norm(u_H,'fro')**2
+        QH_g = theta_3 * norm_x_H_g_H + theta_4 * norm_u_H
+        return QH_g
+    
+def human_s_safety(x_H0,hat_x_R,theta_5,theta_6):
+        QH_s=theta_5*cp.exp(-theta_6*cp.norm(x_H0-hat_x_R,'fro')**2)
+        return QH_s
 
 # Probability distribution of the human’s states
 model=1
 def Probability_distribution_of_human_s_states(w_H,gamma,QH_g,QH_s,beta,betas,P_t,P_ts,P_x_H):
-    for i in range(betas.shape[0]):
+    for j in range(x_H.shape[0]):
+        for k in range(u_H.shape[0]):
+            for i in range(betas.shape[0]):
+                if model==1:
+                    P_x_H_k=1
+                else:
+                    P_x_H_k=0
 
-        if model==1:
-            P_x_H_k=1
-        else:
-            P_x_H_k=0
-        sum_x_H+=P_x_H_k*Human_Action_Prediction(w_H,gamma,QH_g,QH_s,beta[i],betas)*P_ts[i]
+                u_H=human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta)
+                QH_g=human_s_goal(u_H,x_H0,g_H,theta_3,theta_4)
+                sum_x_H+=P_x_H_k*Human_Action_Prediction(u_H,w_H,gamma,QH_g,QH_s,betas[i],betas)*P_ts[i]
 
-    P_x_H=(P_x_H*Human_Action_Prediction(w_H,gamma,QH_g,QH_s,beta,betas)*P_t)/(sum_x_H)
+    P_x_H=(P_x_H*Human_Action_Prediction(u_H,w_H,gamma,QH_g,QH_s,beta,betas)*P_t)/(sum_x_H)
     
     return P_x_H
 
@@ -131,54 +192,36 @@ for i in range(n):
      
     #Updates
     x_H0=x_H[:, i]
-    x_R0=x_R[:, i]
+    x_R0=x_R[:, i].reshape(-1,1)
     # Generate zero-mean Gaussian noise
     epsilon = np.random.normal(mean, std_deviation, num_samples)
     hat_x_R=x_R0+epsilon   
-
+    
     # Human’s action objective function
     # u_H = cp.Variable((NoI_H , 1))
-    u_H_values = np.array([-2, -1, 0, 1, 2])  # Possible values for u_H
-    # Define binary variables
-    binary_vars = cp.Variable((NoI_H, len(u_H_values)), boolean=True)
-    # Define u_H using matrix multiplication
-    u_H = binary_vars @ u_H_values
 
 
 
+    u_H_values = np.array([-2, -1, 0, 1, 2])
 
-    norm_x_H_g_H = cp.norm(x_H0 - g_H,'fro')**2
-    norm_u_H = cp.norm(u_H,'fro')**2
-    QH_g = theta_3 * norm_x_H_g_H + theta_4 * norm_u_H
-    QH_s=theta_5*cp.exp(-theta_6*cp.norm(x_H0-hat_x_R,'fro')**2)
-    sigma_H = eta_1*QH_g+beta*eta_2*QH_s
 
- 
- 
-    objective = cp.Minimize(sigma_H)  # Minimize the sum of u_H values
+    
 
-    # Constraints (ensure each row selects exactly one value from u_H_values)
-    constraints = [  cp.sum(binary_vars, axis=1) == 1]
-
-    # Define the problem
-    problem = cp.Problem(objective, constraints)
-
-    problem.solve(solver=cp.CBC)
-
-    if problem.status != cp.OPTIMAL:
-        flag += 1
-    print(u_H.value)
-    u_app_H[:, i] = u_H.value[:NoI_H, 0]
+    u_app_H[:, i]=human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta)
     x_H[:, i+1] = A_H @ x_H[:, i] + B_H @ u_app_H[:, i]
     
     # Robot’s goal objective function
-    u_R = cp.Variable((NoI_R , 1))
-    norm_x_R_g_R = cp.norm(x_R0 - g_R,'fro')**2
-    norm_u_R = cp.norm(u_R,'fro')**2
-    QR_g = theta_1 * norm_x_R_g_R + theta_4 * norm_u_R
+
+    
+    u_R = cp.Variable((NoI_R * Prediction_Horizon,1))
+    x_pr = Abar @ x_R0 + Bbar @ u_R
+    norm_u_R = cp.sum(cp.square(u_R))
+    norm_x_R_g_R = cp.sum(cp.square(x_pr - g_R_pr))      
+    QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R
     sigma_R = QR_g
-    constraints_R=np.zeros_like(Probability_of_Collision())
-    for i in range(Probability_of_Collision().shape[0]):
+    P_Coll=Probability_distribution_of_human_s_states(w_H,gamma,QH_g,QH_s,beta,betas,P_t,P_ts,P_x_H)
+    constraints_R=np.zeros_like(P_Coll)
+    for i in range(P_Coll.shape[0]):
         constraints_R[i] = [ P_Coll[i] <= P_th] 
     problem = cp.Problem(cp.Minimize(sigma_R), constraints_R)
     problem.solve(solver=cp.OSQP)

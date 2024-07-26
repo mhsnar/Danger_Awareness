@@ -3,10 +3,6 @@ import cvxpy as cp
 import mosek
 import os
 
-# Set up MOSEK environment
-os.environ['MOSEKLM_LICENSE_FILE'] = r'C:\Users\mohsen.amiri\mosek\mosek.lic'
-env = mosek.Env()
-print("MOSEK license is correctly installed.")
 
 # Human Model parameters
 n = 100
