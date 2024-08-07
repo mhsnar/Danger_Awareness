@@ -1,5 +1,6 @@
 import numpy as np
 import cvxpy as cp
+import matplotlib.pyplot as plt
 
 
 ## Modelling
@@ -305,12 +306,17 @@ def Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_ts
             P[j,:,:]= P_x_H/(sum_x_H) 
             new_cell=new_cell[1:]
             P_x_Hn=np.zeros((len(np.array(new_cell)),Nc.shape[0],1))
+            print(j)
+            print(P)
             
             # print(P[0,:,:])
       else:   
             
             PPPPP=np.sum(P_x_Hn, axis=0)   #11111111111111111111111111111111111111111111111111111111111111111111111
+            
             P[j,:,:]=PPPPP/(sum_x_H) 
+            print(j)
+            print(P)
             
             # P[j,:,:]=P_x_H[:,:]/(sum_x_H) 
             P_x_Hn=np.zeros((len(np.array(new_cell)),Nc.shape[0],1))
@@ -322,6 +328,27 @@ def Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_ts
     #     for j in range(Prediction_Horizon):
     #         if P[j,m,:]!=0:
     #             P[j,m,:]=(P[j-1,m,:]*P_x_H[:,:]) 
+    print(P[:,:,0])
+    assert P.shape == (5, len(Nc), 1), "P should have shape (5, 21, 1)"
+    # plt.rc('text', usetex=True)
+    # plt.rc('font', family='serif')
+    plt.figure(figsize=(10, 6))
+    for i in range(P.shape[0]):
+        plt.plot(Nc,P[i], label=f'$P(x_H[ {i+1}])$')
+
+
+    plt.xlabel('$N_c$')
+    plt.ylabel('Prob. Dist. $P(x_H)$')
+    plt.title('Probability Distributions for Different Prediction Horizons')
+    plt.legend()
+    plt.grid(True)
+    plt.xticks(np.arange(-5, 6, 1))
+    vertical_lines = Nc[10]  # Specify the x-values for the vertical dashed lines
+    
+    plt.axvline(vertical_lines, color='black', linestyle=(0, (5, 5)), linewidth=2)
+
+    plt.show()
+    
     return P
 
 # Probability of Collision
@@ -365,6 +392,12 @@ for i in range(n):
     QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R
     sigma_R = QR_g
     P_xH=Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_ts,P_x_H,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc)
+
+    
+
+
+
+
     x_pr
     P_neighbour=x_H
     P_Coll=np.max(P_neighbour)
