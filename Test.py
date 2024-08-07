@@ -223,68 +223,105 @@ tolerance=1e-5
 def Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_ts,P_x_H,u_H_values,Prediction_Horizon,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc):
     P_u_H=np.zeros((u_H_values.shape[0]*betas.shape[0])).reshape(-1,1)
     # fff=u_H_values.shape[0]*betas.shape[0]
-    sum_x_H=0.0
+    # sum_x_H=0.0
     P=np.zeros((Prediction_Horizon,Nc.shape[0],1))
     # P[0,:,:]=1.0
     P_x_H=np.zeros((Nc.shape[0],1))
+    # P_x_Hn=np.zeros(1,(Nc.shape[0],1))
     P_x_H_ik=np.zeros((Nc.shape[0],u_H_values.shape[0]*betas.shape[0]))
     x_H_next_p=np.zeros((Prediction_Horizon,1))
+    x_H_next=np.zeros((u_H_values.shape[0],1))
     P_P=np.zeros((Prediction_Horizon,Nc.shape[0]))
     # u_H_values_flat = u_H_values.flatten()
     # u_H_values = np.tile(u_H_values_flat, Prediction_Horizon)
     # for tt in range(Prediction_Horizon):
     #     u_H_values_P=
-
-    for j in range(Prediction_Horizon-1):
-
+    new_cell = []
+    new_cell.append(1)
+    
+    x_H_next=x_H0
+    for j in range(Prediction_Horizon):
+    #   print(len(np.array(new_cell)))
+      sum_x_H=0.0
+      for n in range(len(np.array(new_cell))):
+        
+        if j>=1:
+            x_H0_new=[Nc[f] for f in np.array(new_cell)]
+            new_cell = []
+            x_H0_=x_H0_new[n]
+        
         for m in range(Nc.shape[0]):
+            
+                for k in range(u_H_values.shape[0]):
+                    if j==0:
+                        x_H_next=A_H*x_H0+B_H*u_H_values[k]
+                    else:
+                        x_H_next=A_H*x_H0_+B_H*u_H_values[k]
+  
+                    if np.allclose(x_H_next, Nc[m, 0], atol=tolerance):
+                        # new_cell=np.concatenate([new_cell, m], axis=0)
+                        new_cell.append(m)
 
-            for k in range(u_H_values.shape[0]):
-                x_H_next=A_H*x_H0+B_H*u_H_values[k]
+                        P_x_H_k=1.0
+                    else:
+                        P_x_H_k=0.0
 
-                # x_H_next_p = Abar_H @ x_H0 + Bbar_H @ (u_H_values[k]*np.ones((Prediction_Horizon,1)))
+                    for i in range(betas.shape[0]):                
+                        P_u_H=Human_Action_Prediction(u_H_values[k,0],u_H_values,w_H,gamma,betas[i],betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
+                        P_t, P_ts=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,beta,betas,P_t,P_ts)               
+                        sum_x_H+=P_x_H_k*P_u_H*P_ts[i]
+
+                for k in range(u_H_values.shape[0]): 
+
+                    if j==0:
+                        x_H_next=A_H*x_H0+B_H*u_H_values[k]
+                    else:
+                        x_H_next=A_H*x_H0_+B_H*u_H_values[k]
+
+                    # x_H_next_p = Abar_H @ x_H0 + Bbar_H @ (u_H_values[k]*np.ones((Prediction_Horizon,1)))
                 
-                if np.allclose(x_H_next, Nc[m, 0], atol=tolerance):
-                    P_x_H_k=1.0
-                else:
-                    P_x_H_k=0.0
+                    if np.allclose(x_H_next, Nc[m, 0], atol=tolerance):
+                        P_x_H_k=1.0
+                    else:
+                        P_x_H_k=0.0         
 
-                for i in range(betas.shape[0]):                
-                    P_u_H=Human_Action_Prediction(u_H_values[k,0],u_H_values,w_H,gamma,betas[i],betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
-                    P_t, P_ts=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,beta,betas,P_t,P_ts)               
-                    sum_x_H+=P_x_H_k*P_u_H*P_ts[i]
+                    for i in range(betas.shape[0]):
 
-            for k in range(u_H_values.shape[0]): 
-
-                x_H_next=A_H*x_H0+B_H*u_H_values[k]
-
-                # x_H_next_p = Abar_H @ x_H0 + Bbar_H @ (u_H_values[k]*np.ones((Prediction_Horizon,1)))
-                
-                if np.allclose(x_H_next, Nc[m, 0], atol=tolerance):
-                    P_x_H_k=1.0
-                else:
-                    P_x_H_k=0.0         
-
-                for i in range(betas.shape[0]):
-
-                    # print(u_H_values[k,0])
-                    P_u_H=Human_Action_Prediction(u_H_values[k,0],u_H_values,w_H,gamma,betas[i],betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
-                    P_t, P_ts=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,beta,betas,P_t,P_ts)   
-                    P_x_H_ik[m,i+k]=(P_x_H_k*P_u_H*P_t) 
+                        # print(u_H_values[k,0])
+                        P_u_H=Human_Action_Prediction(u_H_values[k,0],u_H_values,w_H,gamma,betas[i],betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
+                        P_t, P_ts=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,beta,betas,P_t,P_ts)   
+                        P_x_H_ik[m,i+k]=(P_x_H_k*P_u_H*P_t) 
                  
          
           
-            P_x_H[m,:]=np.sum(P_x_H_ik[m,:]) 
-            # print(P_x_H)   
-
+                P_x_H[m,:]=np.sum(P_x_H_ik[m,:]) 
         if j==0:
-            P[j,:,:]= P_x_H/(sum_x_H)  
-            print(P[0,:,:])
-        else:   
+            P_x_Hn=np.zeros((1,Nc.shape[0],1))
+            P_x_Hn[:,:,:]=P_x_H 
+        else:
+            P_x_Hn[n,:,:]=P_x_H        # print(P_x_H)   
 
-
-            P[j+1,m,0]=P[j,m,0]* P_x_H[m,0]/(sum_x_H)  
+      if j==0:
+            P[j,:,:]= P_x_H/(sum_x_H) 
+            new_cell=new_cell[1:]
+            P_x_Hn=np.zeros((len(np.array(new_cell)),Nc.shape[0],1))
+            
+            # print(P[0,:,:])
+      else:   
+            
+            PPPPP=np.sum(P_x_Hn, axis=0)   #11111111111111111111111111111111111111111111111111111111111111111111111
+            P[j,:,:]=PPPPP/(sum_x_H) 
+            
+            # P[j,:,:]=P_x_H[:,:]/(sum_x_H) 
+            P_x_Hn=np.zeros((len(np.array(new_cell)),Nc.shape[0],1))
+            # P[j,:,:]=(P[j-1,:,:]*P_x_H[:,:])/(sum_x_H)  
+            
+            # sum_x_H=0.0
     # P_P[j,m]= P[m,0]
+    # for m in range(Nc.shape[0]):
+    #     for j in range(Prediction_Horizon):
+    #         if P[j,m,:]!=0:
+    #             P[j,m,:]=(P[j-1,m,:]*P_x_H[:,:]) 
     return P
 
 # Probability of Collision

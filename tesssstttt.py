@@ -8,7 +8,7 @@ import cvxpy as cp
 #------------------------------------------
 # Robot Model
 n = 100
-Prediction_Horizon = 5.0
+Prediction_Horizon = 5
 deltaT=0.5
 
 A_R = np.array([1.0])
@@ -107,9 +107,9 @@ P_x_H=-5
 # print(betas)
 
 # x_H = -5.0*np.ones((NoS_H,n))
-# Nc=np.array([-5.0,-4.5,-4.0,-3.5,-3.0,-2.5,-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5]).reshape(-1,1)   
+Nc=np.array([-5.0,-4.5,-4.0,-3.5,-3.0,-2.5,-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5]).reshape(-1,1)   
 x_H = 0.0*np.ones((NoS_H,n))
-Nc=np.array([0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5]).reshape(-1,1)   
+# Nc=np.array([0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5]).reshape(-1,1)   
 
 g_H = np.array([5.0]).reshape(-1,1)  
 g_R = np.array([80.0]).reshape(-1,1) 
@@ -117,6 +117,7 @@ g_R_pr=np.tile(g_R, Prediction_Horizon)
 v_R = np.array([2.0]).reshape(-1,1)  
 v_h = np.array([0.5]).reshape(-1,1)  
 w_H = np.array([0.5]).reshape(-1,1)  
+u_H_values = np.array([-2, -1, 0, 1, 2]).reshape(-1,1)
 
 P_th = np.array([0.1]).reshape(-1,1)  
 T_R = np.array([5.0]).reshape(-1,1)  
@@ -157,7 +158,7 @@ def Human_Action_Prediction(u_H,u_H_values,w_H,gamma,beta,betas,x_H0,hat_x_R,g_H
    P_r=1/U_H
   
    P_u_H=(1-w_H) * P_d+w_H * P_r
-   print(P_u_H)
+#    print(P_u_H)
    return P_u_H
 #    print(P_r)
 
@@ -189,7 +190,7 @@ def  human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,ha
         if problem.status != cp.OPTIMAL:
             flag += 1
         sss=u_H.value
-        print(sss)
+        # print(sss)
         return sss
 # Robot’s Belief About the Human’s Danger Awareness
 def Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,beta,betas,P_t,P_ts):
@@ -223,54 +224,84 @@ def Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_ts
     P_u_H=np.zeros((u_H_values.shape[0]*betas.shape[0])).reshape(-1,1)
     # fff=u_H_values.shape[0]*betas.shape[0]
     sum_x_H=0.0
-    P=np.zeros((Nc.shape[0],1))
+    P=np.zeros((Prediction_Horizon,Nc.shape[0],1))
+    # P[0,:,:]=1.0
     P_x_H=np.zeros((Nc.shape[0],1))
     P_x_H_ik=np.zeros((Nc.shape[0],u_H_values.shape[0]*betas.shape[0]))
     x_H_next_p=np.zeros((Prediction_Horizon,1))
+    x_H_next=np.zeros((u_H_values.shape[0],1))
+    P_P=np.zeros((Prediction_Horizon,Nc.shape[0]))
     # u_H_values_flat = u_H_values.flatten()
     # u_H_values = np.tile(u_H_values_flat, Prediction_Horizon)
     # for tt in range(Prediction_Horizon):
     #     u_H_values_P=
-
+    new_cell=[]
+    x_H_next=x_H0
     for j in range(Prediction_Horizon):
-
+      new_cell=[]
+      for n in range(x_H_next.shape[0]):
+        if j>=1:
+            x_H0_new=[Nc[f] for f in new_cell]
+            x_H0_=x_H0_new[n,0]
+        
         for m in range(Nc.shape[0]):
-
-            for k in range(u_H_values.shape[0]):
-                x_H_next=A_H*x_H0+B_H*u_H_values[k]
-                
-                x_H_next_p[j,0] = Abar_H @ x_H0 + Bbar_H @ (u_H_values[k]*np.ones((Prediction_Horizon,1)))
-                
-                if np.allclose(x_H_next, Nc[m, 0], atol=tolerance):
-                    P_x_H_k=1.0
-                else:
-                    P_x_H_k=0.0
-
-                for i in range(betas.shape[0]):                
-                    P_u_H=Human_Action_Prediction(u_H_values[k,0],u_H_values,w_H,gamma,betas[i],betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
-                    P_t, P_ts=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,beta,betas,P_t,P_ts)               
-                    sum_x_H+=P_x_H_k*P_u_H*P_ts[i]
-
-            for k in range(u_H_values.shape[0]): 
-
-                x_H_next=A_H*x_H+B_H*u_H_values[k]
-                if np.allclose(x_H_next, Nc[m, 0], atol=tolerance):
-                    P_x_H_k=1.0
-                else:
-                    P_x_H_k=0.0          
-
-                for i in range(betas.shape[0]):
-
-                    print(u_H_values[k,0])
-                    P_u_H=Human_Action_Prediction(u_H_values[k,0],u_H_values,w_H,gamma,betas[i],betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
-                    P_t, P_ts=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,beta,betas,P_t,P_ts)   
-                    P_x_H_ik[m,i+k]=(P_x_H_k*P_u_H*P_t)  
-
-            P_x_H[m,0]=np.sum(P_x_H_ik[m,i+k])    
-
             
-        P[m,0]= P_x_H[m,0]/(sum_x_H)  
-    
+                for k in range(u_H_values.shape[0]):
+                    if j==0:
+                        x_H_next=A_H*x_H0+B_H*u_H_values[k]
+                    else:
+                        x_H_next=A_H*x_H0_+B_H*u_H_values[k]
+                    
+
+                # x_H_next_p = Abar_H @ x_H0 + Bbar_H @ (u_H_values[k]*np.ones((Prediction_Horizon,1)))
+                
+                    if np.allclose(x_H_next, Nc[m, 0], atol=tolerance):
+                        new_cell=np.concatenate([new_cell, m], axis=0)
+                        # new_cell=[new_cell, m]
+                        P_x_H_k=1.0
+                    else:
+                        P_x_H_k=0.0
+
+                    for i in range(betas.shape[0]):                
+                        P_u_H=Human_Action_Prediction(u_H_values[k,0],u_H_values,w_H,gamma,betas[i],betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
+                        P_t, P_ts=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,beta,betas,P_t,P_ts)               
+                        sum_x_H+=P_x_H_k*P_u_H*P_ts[i]
+
+                for k in range(u_H_values.shape[0]): 
+
+                    if j==0:
+                        x_H_next=A_H*x_H0+B_H*u_H_values[k]
+                    else:
+                        x_H_next=A_H*x_H0_+B_H*u_H_values[k]
+
+                    # x_H_next_p = Abar_H @ x_H0 + Bbar_H @ (u_H_values[k]*np.ones((Prediction_Horizon,1)))
+                
+                    if np.allclose(x_H_next, Nc[m, 0], atol=tolerance):
+                        P_x_H_k=1.0
+                    else:
+                        P_x_H_k=0.0         
+
+                    for i in range(betas.shape[0]):
+
+                        # print(u_H_values[k,0])
+                        P_u_H=Human_Action_Prediction(u_H_values[k,0],u_H_values,w_H,gamma,betas[i],betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
+                        P_t, P_ts=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,beta,betas,P_t,P_ts)   
+                        P_x_H_ik[m,i+k]=(P_x_H_k*P_u_H*P_t) 
+                 
+         
+          
+                P_x_H[m,:]=np.sum(P_x_H_ik[m,:]) 
+                # print(P_x_H)   
+
+        if j==0:
+            P[j,:,:]= P_x_H/(sum_x_H)  
+            print(P[0,:,:])
+        else:   
+            # P[j,:,:]= P_x_H/(sum_x_H)  
+            # print(P[0,:,:])
+
+            P[j+1,m,0]=P[j,m,0]* P_x_H[m,0]/(sum_x_H)  
+    # P_P[j,m]= P[m,0]
     return P
 
 # Probability of Collision
@@ -285,7 +316,7 @@ u_app_R = np.zeros((NoI_R, n))
 for i in range(n):
      
     #Updates
-    x_H0=x_H[:, i]
+    x_H0=x_H[:, i].reshape(-1,1)
     x_R0=x_R[:, i].reshape(-1,1)
     # Generate zero-mean Gaussian noise
     epsilon = np.random.normal(mean, std_deviation, num_samples)
@@ -296,7 +327,7 @@ for i in range(n):
 
 
 
-    u_H_values = np.array([-2, -1, 0, 1, 2]).reshape(-1,1)
+    
 
 
     
@@ -313,20 +344,11 @@ for i in range(n):
     norm_x_R_g_R = cp.sum(cp.square(x_pr - g_R_pr))      
     QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R
     sigma_R = QR_g
-    P=Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_ts,P_x_H,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc)
-    lambdas=(x_H0-2)**2
-    PP=m=5
-    P_Coll=np.zeros((Prediction_Horizon,1))
-    for ii in range(Prediction_Horizon):
-        for j in range(Nc.shape[0]):
-            if PP(ii)==(P[ii,j,0]):
-                P_Coll[ii]=P[ii]
-            else:
-                P_Coll[ii]=0
-
-    
-    
- 
+    P_xH=Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_ts,P_x_H,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc)
+    x_pr
+    P_neighbour=x_H
+    P_Coll=np.max(P_neighbour)
+    print(np.sum(P_Coll))
     constraints_R=np.zeros_like(P_Coll)
     for i in range(P_Coll.shape[0]):
         constraints_R[i] = [ P_Coll[i] <= P_th] 
