@@ -1,5 +1,6 @@
 import numpy as np
 import cvxpy as cp
+import matplotlib.pyplot as plt
 
 
 ## Modelling
@@ -8,7 +9,7 @@ import cvxpy as cp
 #------------------------------------------
 # Robot Model
 n = 100
-Prediction_Horizon = 5
+Prediction_Horizon = 3
 deltaT=0.5
 
 A_R = np.array([1.0])
@@ -131,7 +132,7 @@ theta_3 = np.array([2.5]).reshape(-1,1)
 theta_4 = np.array([8.0*10**-3]).reshape(-1,1)   
 theta_5 = np.array([3.0]).reshape(-1,1) 
 theta_6 = np.array([6.0*10**-3]).reshape(-1,1) 
-x_R = np.array([1]).reshape(-1,1)  
+x_R = -5.0*np.ones((NoS_R,n))  
 
 # # Generate the estimation and noise samples
 mean = 0  # Zero mean for the Gaussian noise
@@ -223,10 +224,11 @@ tolerance=1e-5
 def Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_ts,P_x_H,u_H_values,Prediction_Horizon,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc):
     P_u_H=np.zeros((u_H_values.shape[0]*betas.shape[0])).reshape(-1,1)
     # fff=u_H_values.shape[0]*betas.shape[0]
-    sum_x_H=0.0
+    # sum_x_H=0.0
     P=np.zeros((Prediction_Horizon,Nc.shape[0],1))
     # P[0,:,:]=1.0
     P_x_H=np.zeros((Nc.shape[0],1))
+    # P_x_Hn=np.zeros(1,(Nc.shape[0],1))
     P_x_H_ik=np.zeros((Nc.shape[0],u_H_values.shape[0]*betas.shape[0]))
     x_H_next_p=np.zeros((Prediction_Horizon,1))
     x_H_next=np.zeros((u_H_values.shape[0],1))
@@ -235,18 +237,32 @@ def Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_ts
     # u_H_values = np.tile(u_H_values_flat, Prediction_Horizon)
     # for tt in range(Prediction_Horizon):
     #     u_H_values_P=
-
-    for j in range(Prediction_Horizon-1):
+    new_cell = []
+    new_cell.append(1)
+    
+    x_H_next=x_H0
+    for j in range(Prediction_Horizon):
+    #   print(len(np.array(new_cell)))
+        sum_x_H=0.0
+        for n in range(len(np.array(new_cell))):
         
-        for m in range(Nc.shape[0]):
-            if P[j,m,0]==0:
+            if j>=1:
+                x_H0_new=[Nc[f] for f in np.array(new_cell)]
+                new_cell = []
+                x_H0_=x_H0_new[n]
+        
+            for m in range(Nc.shape[0]):
+            
                 for k in range(u_H_values.shape[0]):
-                    x_H_next[k]=A_H*x_H0+B_H*u_H_values[k]
-                    
+                    if j==0:
+                        x_H_next=A_H*x_H0+B_H*u_H_values[k]
+                    else:
+                        x_H_next=A_H*x_H0_+B_H*u_H_values[k]
 
-                # x_H_next_p = Abar_H @ x_H0 + Bbar_H @ (u_H_values[k]*np.ones((Prediction_Horizon,1)))
-                
-                    if np.allclose(x_H_next[k], Nc[m, 0], atol=tolerance):
+                    if np.allclose(x_H_next, Nc[m, 0], atol=tolerance):
+                        # new_cell=np.concatenate([new_cell, m], axis=0)
+                        new_cell.append(m)
+
                         P_x_H_k=1.0
                     else:
                         P_x_H_k=0.0
@@ -258,11 +274,14 @@ def Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_ts
 
                 for k in range(u_H_values.shape[0]): 
 
-                    x_H_next[k]=A_H*x_H0+B_H*u_H_values[k]
-
-                    # x_H_next_p = Abar_H @ x_H0 + Bbar_H @ (u_H_values[k]*np.ones((Prediction_Horizon,1)))
+                    if j==0:
+                        x_H_next=A_H*x_H0+B_H*u_H_values[k]
+                    else:
+                        x_H_next=A_H*x_H0_+B_H*u_H_values[k]
+ 
+                       # x_H_next_p = Abar_H @ x_H0 + Bbar_H @ (u_H_values[k]*np.ones((Prediction_Horizon,1)))
                 
-                    if np.allclose(x_H_next[k], Nc[m, 0], atol=tolerance):
+                    if np.allclose(x_H_next, Nc[m, 0], atol=tolerance):
                         P_x_H_k=1.0
                     else:
                         P_x_H_k=0.0         
@@ -273,32 +292,79 @@ def Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_ts
                         P_u_H=Human_Action_Prediction(u_H_values[k,0],u_H_values,w_H,gamma,betas[i],betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
                         P_t, P_ts=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,beta,betas,P_t,P_ts)   
                         P_x_H_ik[m,i+k]=(P_x_H_k*P_u_H*P_t) 
-                 
-         
-          
+
                 P_x_H[m,:]=np.sum(P_x_H_ik[m,:]) 
-                # print(P_x_H)   
+
+            if j==0:
+                P_x_Hn=np.zeros((1,Nc.shape[0],1))
+                P_x_Hn[:,:,:]=P_x_H 
+            else:
+                P_x_Hn[n,:,:]=P_x_H      
 
         if j==0:
-            P[j,:,:]= P_x_H/(sum_x_H)  
-            print(P[0,:,:])
-        else:   
-            # P[j,:,:]= P_x_H/(sum_x_H)  
-            # print(P[0,:,:])
+            #print(np.sum(P_x_H))
 
-            P[j+1,m,0]=P[j,m,0]* P_x_H[m,0]/(sum_x_H)  
+            P[j,:,:]= P_x_H/(sum_x_H) 
+            new_cell=new_cell[1:]
+            P_x_Hn=np.zeros((len(np.array(new_cell)),Nc.shape[0],1))
+            #print(j)
+            #print(P)
+            
+            # print(P[0,:,:])
+        else:   
+            
+            PPPPP=np.sum(P_x_Hn, axis=0)   #11111111111111111111111111111111111111111111111111111111111111111111111         
+            P[j,:,:]=PPPPP/(sum_x_H) 
+            #print(j)
+            #print(P)
+            
+
+            P_x_Hn=np.zeros((len(np.array(new_cell)),Nc.shape[0],1))
+            # P[j,:,:]=(P[j-1,:,:]*P_x_H[:,:])/(sum_x_H)  
+            
+            # sum_x_H=0.0
     # P_P[j,m]= P[m,0]
+    # for m in range(Nc.shape[0]):
+    #     for j in range(Prediction_Horizon):
+    #         if P[j,m,:]!=0:
+    #             P[j,m,:]=(P[j-1,m,:]*P_x_H[:,:]) \\
+
+
+
+    #-----------------------------------------------------------------------------------
+    # #print(P[:,:,0])
+    # assert P.shape == (5, len(Nc), 1), "P should have shape (5, 21, 1)"
+    # # plt.rc('text', usetex=True)
+    # # plt.rc('font', family='serif')
+    # plt.figure(figsize=(10, 6))
+    # for i in range(P.shape[0]):
+    #     plt.plot(Nc,P[i], label=f'$P(x_H[ {i+1}])$')
+    # plt.xlabel('$N_c$')
+    # plt.ylabel('Prob. Dist. $P(x_H)$')
+    # plt.title('Probability Distributions for Different Prediction Horizons')
+    # plt.legend()
+    # plt.grid(True)
+    # plt.xticks(np.arange(-5, 6, 1))
+    # vertical_lines = Nc[10]  # Specify the x-values for the vertical dashed lines
+    # plt.axvline(vertical_lines, color='black', linestyle=(0, (5, 5)), linewidth=2)
+    # plt.show()
+    #-----------------------------------------------------------------------------------
+    
     return P
 
 # Probability of Collision
 
 def Probability_of_Collision():
-    P_Coll=1
+    P_Coll=0.0
     return P_Coll
 
 flag=0
+P_Col=[]
+P_Coll=[]
+P_t_app=[]
 u_app_H = np.zeros((NoI_H, n))
 u_app_R = np.zeros((NoI_R, n))
+
 for i in range(n):
      
     #Updates
@@ -331,16 +397,70 @@ for i in range(n):
     QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R
     sigma_R = QR_g
     P_xH=Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_ts,P_x_H,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc)
-    x_pr
-    P_neighbour=x_H
-    P_Coll=np.max(P_neighbour)
-    print(np.sum(P_Coll))
-    constraints_R=np.zeros_like(P_Coll)
-    for i in range(P_Coll.shape[0]):
-        constraints_R[i] = [ P_Coll[i] <= P_th] 
-    problem = cp.Problem(cp.Minimize(sigma_R), constraints_R)
+
+    P_t_ap, _=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,beta,betas,P_t,P_ts)  
+    P_t_app.append(P_t_ap)
+    for t in range(P_xH.shape[0]):
+        # Get the current 2D slice
+        matrix = P_xH[t, :, :]
+
+        # Check if any value exceeds the threshold
+        if np.any(matrix > 0.0):
+            # Find indices where the condition is true
+            indices = np.where(matrix > 0.0)
+        
+            # Use the first pair of indices for demonstration purposes
+            j, k = indices[0][0], indices[1][0]
+            constraints = []
+            for tt in range(len(indices)):# Check the constraint on x_pr
+                print(matrix[indices[tt][0],0])
+                if indices[tt][0]>=8 and indices[tt][0]<=12 and matrix[indices[tt][0],0]>P_th:                 #-- Here we define a shortcut in a way that we know the exact equivalent position of the index 9,10,11.
+                    for ttt in range(x_pr.shape[0]):                         #-- So we limit the robot to croos that position.
+                         constraints.append([x_pr[ttt] <= -1.0,
+                                             x_pr[ttt] >= 1.0])
+                    P_Col.append(0.0)
+
+                elif indices[tt][0]>=9 and indices[tt][0]<=11 and matrix[indices[tt][0]]<=P_th and (x_pr[ttt] >= -1.0 or x_pr[ttt] <= 1.0 for ttt in range(x_pr.shape[0])):
+                # Find the maximum value smaller than the threshold
+                    # valid_values = matrix[matrix < P_th]
+                    
+                    P_Col.append(matrix[indices[tt][0]])
+                #print(f"Max value smaller than threshold: {P_Coll}")
+                else:
+                    P_Col.append(0.0)
+
+
+            
+    P_Coll.append(np.max(P_Col))
+    problem = cp.Problem(cp.Minimize(sigma_R), constraints)
     problem.solve(solver=cp.OSQP)
     if problem.status != cp.OPTIMAL:
         flag += 1
     u_app_R[:, i] = u_R.value[:NoI_R, 0]
+    sss=A_R@ x_R[:, i] 
+    sdsd=B_R @ u_app_R[:, i]
     x_R[:, i+1] = A_R@ x_R[:, i] + B_R @ u_app_R[:, i]
+
+
+    print(i)
+
+    # time = np.linspace(0, (i+1)*deltaT, i+1)
+    # plt.figure(figsize=(10, 6))
+    # for i in range(len(P_Coll)):
+    #     plt.plot(time,P_Coll, label=f'$P(x_H[ {i+1}])$')
+    # plt.xlabel('Time[s]')
+    # plt.ylabel('Prob. Dist. $P(x_H)$')
+    # plt.title('Probability Distributions for Different Prediction Horizons')
+    # plt.legend()
+    # plt.grid(True)
+    # plt.xticks(np.arange(0, 6, 1))
+    # plt.show()
+
+
+
+
+
+
+
+
+
