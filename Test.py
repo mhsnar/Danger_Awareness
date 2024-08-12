@@ -117,21 +117,21 @@ g_R = np.array([80.0]).reshape(-1,1)
 g_R_pr=np.tile(g_R, Prediction_Horizon) 
 v_R = np.array([2.0]).reshape(-1,1)  
 v_h = np.array([0.5]).reshape(-1,1)  
-w_H = np.array([0.5]).reshape(-1,1)  
+w_H = np.array([0.1]).reshape(-1,1)  
 u_H_values = np.array([-2, -1, 0, 1, 2]).reshape(-1,1)
 
 P_th = np.array([0.1]).reshape(-1,1)  
 T_R = np.array([5.0]).reshape(-1,1)  
 
-gamma = 10
+gamma = 1
 eta_1 = 1.0
 eta_2 = 1.0
 theta_1 = np.array([1.0]).reshape(-1,1)   
 theta_2 = np.array([0.5]).reshape(-1,1)   
 theta_3 = np.array([2.5]).reshape(-1,1)   
-theta_4 = np.array([8.0*10**-3]).reshape(-1,1)   
-theta_5 = np.array([1]).reshape(-1,1) 
-theta_6 = np.array([600]).reshape(-1,1) 
+theta_4 = np.array([8.0]).reshape(-1,1)   
+theta_5 = np.array([300]).reshape(-1,1) 
+theta_6 = np.array([.006]).reshape(-1,1) 
 x_R = -5.0*np.ones((NoS_R,n))  
 
 # # Generate the estimation and noise samples
@@ -151,7 +151,7 @@ def  human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,ha
         # binary_vars = cp.Variable((NoI_H, len(u_H_values)), boolean=True)
         # u_H = binary_vars @ u_H_values
 
-        norm_x_H_g_H = cp.norm(x_H0 - g_H,'fro')**2
+        norm_x_H_g_H = cp.norm(x_H0+u_H - g_H,'fro')**2
         norm_u_H = cp.norm(u_H,'fro')**2
         QH_g = theta_3 * norm_x_H_g_H + theta_4 * norm_u_H
                 
@@ -167,8 +167,9 @@ def  human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,ha
         if problem.status != cp.OPTIMAL:
             flag += 1
         sss=u_H.value
+        closest_value = min(u_H_values, key=lambda x: abs(x - sss))
         # print(sss)
-        return sss
+        return closest_value
 
 
 
@@ -195,18 +196,32 @@ def Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,thet
     P_di=np.exp(-gamma*(QH_g+ beta*QH_s))
     # P_d=np.array(P_di).reshape(-1,1)
     P_d=P_d/sum_P_d
+    # Initialize a result matrix with the same shape as P_d
+    result = np.zeros_like(P_d)
+
+    # For each column (dimension), set the maximum value to 1 and others to 0
+    for j in range(P_d.shape[1]):
+    # Find the index of the maximum value in the j-th column
+        max_index = np.argmax(P_d[:, j])
+    # Set the corresponding element in the result matrix to 1
+        result[max_index, j] = 1
+ 
+
+
+    P_d=result
+    
     P_di=P_di/sum_P_d
     # Human’s Random Behavior:
     U_H=len(u_H_values)
     P_r=1/U_H
-  
+     
     P_u_H=(1-w_H) * P_d+w_H * P_r
     P_u_Hi=(1-w_H) * P_di+w_H * P_r
     return P_u_H, P_u_Hi
    
 
 def human_s_goal(u_H,x_H0,g_H,theta_3,theta_4):
-        norm_x_H_g_H = np.linalg.norm(x_H0 - g_H)**2
+        norm_x_H_g_H = np.linalg.norm(x_H0+u_H - g_H)**2
         norm_u_H = np.linalg.norm(u_H)**2
         QH_g = theta_3 * norm_x_H_g_H + theta_4 * norm_u_H
         return QH_g
@@ -235,11 +250,10 @@ def Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,betas,P_t,x_H0,hat_x_R,g_H
 # Probability distribution of the human’s states
 
 tolerance=1e-5
-def Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_x_H,u_H_values,Prediction_Horizon,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc):
+def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,P_x_H,u_H_values,Prediction_Horizon,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H):
     # P_u_H=np.zeros((u_H_values.shape[0]*betas.shape[0])).reshape(-1,1)
 
-    P_u_H, P_u_Hi=Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
-    P_t=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,betas,P_t,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
+
     # fff=u_H_values.shape[0]*betas.shape[0]
     # sum_x_H=0.0
     P=np.zeros((Prediction_Horizon,Nc.shape[0],1))
@@ -261,7 +275,7 @@ def Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_x_
     for j in range(Prediction_Horizon):
     #   print(len(np.array(new_cell)))
         sum_x_H=0.0
-
+        
         if j>=1:
             unique_numbers = set(new_cell)
             new_cell = list(unique_numbers)
@@ -270,8 +284,8 @@ def Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_x_
         for n in range(len(np.array(new_cell))):
         
             if j>=1:
-                # x_H0_new=[Nc[f] for f in np.array(new_cell)]
-                # new_cell = []
+                x_H0_new=[Nc[f] for f in np.array(new_cell)]
+                new_cell = []
                 x_H0_=x_H0_new[n]
             
             for m in range(Nc.shape[0]):
@@ -284,18 +298,31 @@ def Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_x_
 
                     if np.allclose(x_H_next, Nc[m, 0], atol=tolerance):
                         # new_cell=np.concatenate([new_cell, m], axis=0)
-                        new_cell.append(m)
-                        if j==0:
-                                           
-                            P_x_H_k=1.0
-                        else:
-                            P_x_H_k=1.0
-                            # P_x_H_k=P_x_H[m,:]
+                        # new_cell.append(m)                               
+                        P_x_H_k=1.0
+
                     else:
                         P_x_H_k=0.0
 
-                    for i in range(betas.shape[0]):                
-                        P_x_H_iks.append(P_x_H_k*P_u_H[k,i]*P_t[i])        
+                    for i in range(betas.shape[0]):
+                        # if j>=1:
+
+                        #     u_H=human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta)
+                        #     x_H0 = A_H @ x_H0 + B_H @ u_H
+
+                        #     # Robot’s goal objective function
+                        #     x_pr = Abar @ x_R0 + Bbar @ u_app_Robot
+                        #     epsilon = np.random.normal(mean, std_deviation, num_samples)
+                        #     hat_x_R=x_pr[j]+epsilon 
+
+
+
+
+                        P_u_H, P_u_Hi=Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
+                        P_t=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,betas,P_t,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)                
+                        P_x_H_iks.append(P_x_H_k*P_u_H[k,i]*P_t[i])
+                        if P_x_H_k*P_u_H[k,i]*P_t[i]!=0:
+                            new_cell.append(m)         
                         sum_x_H+=P_x_H_k*P_u_H[k,i]*P_t[i]
 
                 sssss=np.array(P_x_H_iks).reshape(-1,1)
@@ -310,24 +337,30 @@ def Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_x_
             else:
                 P_x_Hn[n,:,:]=P_x_H      
 
+        
+        
+        
+        u_H=human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta)
+        x_H0 = A_H @ x_H0 + B_H @ u_H
+        # Robot’s goal objective function
+        x_pr = Abar @ x_R0 + Bbar @ u_app_Robot
+        x_pr=np.vstack((x_pr,1.0))
+        epsilon = np.random.normal(mean, std_deviation, num_samples)
+        hat_x_R=x_pr[j+1]+epsilon     
+        
         if j==0:
-            
-
             P[j,:,:]= P_x_H/(sum_x_H) 
             print(P[0,:,:])
             new_cell=new_cell[1:]
             P_x_Hn=np.zeros((len(np.array(new_cell)),Nc.shape[0],1))
 
-        else:   
-            
-            PPPPP=np.sum(P_x_Hn, axis=0)   #11111111111111111111111111111111111111111111111111111111111111111111111         
+        else:              
+            PPPPP=np.sum(P_x_Hn, axis=0)   
             P[j,:,:]=PPPPP/(sum_x_H) 
             print(P[j,:,:])
-            #print(j)
-            #print(P)
-            
-
             P_x_Hn=np.zeros((len(np.array(new_cell)),Nc.shape[0],1))
+
+
 
 
 
@@ -397,7 +430,11 @@ for i in range(n):
     norm_x_R_g_R = cp.sum(cp.square(x_pr - g_R_pr))      
     QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R
     sigma_R = QR_g
-    P_xH=Probability_distribution_of_human_s_states(u_H,w_H,gamma,beta,betas,P_t,P_x_H,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc)
+    u_app_Robot=2.0*np.ones((NoI_R * Prediction_Horizon,1))
+    if i>=1: 
+        u_app_Robot=np.tile(u_app_R[:, i], Prediction_Horizon).reshape(-1,1)
+        # u_up = np.tile(Uconstraint_flat, Prediction_Horizon)
+    P_xH=Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,P_x_H,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H)
 
     P_t_ap=(u_H,u_H_values,w_H,gamma,betas,P_t,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
     P_t_app.append(P_t_ap)
