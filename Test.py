@@ -8,10 +8,14 @@ import matplotlib.pyplot as plt
 
 #------------------------------------------
 # Robot Model
-n = 100
+n = 20
 Prediction_Horizon = 5
 deltaT=0.5
+import pickle
 
+# Save all variables to a file
+with open('workspace.pkl', 'wb') as f:
+    pickle.dump(globals(), f)
 A_R = np.array([1.0])
 B_R = np.array([deltaT]).reshape(-1,1)
 C_R = np.eye(1)
@@ -109,7 +113,7 @@ P_x_H=-5
 
 # x_H = -5.0*np.ones((NoS_H,n))
 Nc=np.array([-5.0,-4.5,-4.0,-3.5,-3.0,-2.5,-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0]).reshape(-1,1)   
-x_H = -0.0*np.ones((NoS_H,n))
+x_H = -0.0*np.ones((NoS_H,n+1))
 # Nc=np.array([0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5]).reshape(-1,1)   
 
 g_H = np.array([5.0]).reshape(-1,1)  
@@ -117,7 +121,7 @@ g_R = np.array([80.0]).reshape(-1,1)
 g_R_pr=np.tile(g_R, Prediction_Horizon) 
 v_R = np.array([2.0]).reshape(-1,1)  
 v_h = np.array([0.5]).reshape(-1,1)  
-w_H = np.array([0.05]).reshape(-1,1)  
+w_H = np.array([0.2]).reshape(-1,1)  
 u_H_values = np.array([-2, -1, 0, 1, 2]).reshape(-1,1)
 
 P_th = np.array([0.1]).reshape(-1,1)  
@@ -132,7 +136,7 @@ theta_3 = np.array([2.5]).reshape(-1,1)
 theta_4 = np.array([8.0]).reshape(-1,1)   
 theta_5 = np.array([300]).reshape(-1,1) 
 theta_6 = np.array([.006]).reshape(-1,1) 
-x_R = -5.0*np.ones((NoS_R,n))  
+x_R = -5.0*np.ones((NoS_R,n+1))  
 
 # # Generate the estimation and noise samples
 mean = 0  # Zero mean for the Gaussian noise
@@ -142,10 +146,6 @@ num_samples = 1  # Number of samples
 
 
 def  human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta):
-        
-        
-        
-        
         
         u_H = cp.Variable((NoI_H , 1), nonneg=True)
         # binary_vars = cp.Variable((NoI_H, len(u_H_values)), boolean=True)
@@ -252,7 +252,7 @@ def Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,betas,P_t,x_H0,hat_x_R,g_H
 tolerance=1e-5
 def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,P_x_H,u_H_values,Prediction_Horizon,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H):
     # P_u_H=np.zeros((u_H_values.shape[0]*betas.shape[0])).reshape(-1,1)
-
+     
     x_pr = Abar @ x_R0 + Bbar @ u_app_Robot
     x_pr=np.vstack((x_pr,1.0))
     # fff=u_H_values.shape[0]*betas.shape[0]
@@ -304,10 +304,14 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
                     if np.allclose(x_H_next, Nc[m, 0], atol=tolerance):
                         # new_cell=np.concatenate([new_cell, m], axis=0)
                         # new_cell.append(m)                               
-                        P_x_H_k=1.0
+                        if j==0:
+                            P_x_H_k=np.array([1.0])
+                        else:
+                            P_x_H_k=P[j-1,new_cells[n],:]
+
 
                     else:
-                        P_x_H_k=0.0
+                        P_x_H_k=np.array([0.0])
 
                     for i in range(betas.shape[0]):
                         # if j>=1:
@@ -324,7 +328,7 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
 
 
                         P_u_H, P_u_Hi=Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0_prob,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
-                        P_t=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,betas,P_t,x_H0_prob,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)                
+                        
                         P_x_H_iks.append(P_x_H_k*P_u_H[k,i]*P_t[i])
                         if P_x_H_k*P_u_H[k,i]*P_t[i]!=0:
                             new_cell.append(m)         
@@ -347,14 +351,14 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
         
         if j==0:
             P[j,:,:]= P_x_H/(sum_x_H) 
-            print(P[0,:,:])
+            # print(P[0,:,:])
             new_cell=new_cell[1:]
             P_x_Hn=np.zeros((len(np.array(new_cell)),Nc.shape[0],1))
 
         else:              
             PPPPP=np.sum(P_x_Hn, axis=0)   
             P[j,:,:]=PPPPP/(sum_x_H) 
-            print(P[j,:,:])
+            # print(P[j,:,:])
             P_x_Hn=np.zeros((len(np.array(new_cell)),Nc.shape[0],1))
 
         # u_H=human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta)
@@ -377,21 +381,21 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
 
     #-----------------------------------------------------------------------------------
     # #print(P[:,:,0])
-    assert P.shape == (Prediction_Horizon, len(Nc), 1), "P should have shape (5, 21, 1)"
-    # plt.rc('text', usetex=True)
-    # plt.rc('font', family='serif')
-    plt.figure(figsize=(10, 6))
-    for i in range(P.shape[0]):
-        plt.plot(Nc,P[i], label=f'$P(x_H[ {i+1}])$')
-    plt.xlabel('$N_c$')
-    plt.ylabel('Prob. Dist. $P(x_H)$')
-    plt.title('Probability Distributions for Different Prediction Horizons')
-    plt.legend()
-    plt.grid(True)
-    plt.xticks(np.arange(-5, 6, 1))
-    vertical_lines = x_H[0,0]  # Specify the x-values for the vertical dashed lines
-    plt.axvline(vertical_lines, color='black', linestyle=(0, (5, 5)), linewidth=2)
-    plt.show()
+    # assert P.shape == (Prediction_Horizon, len(Nc), 1), "P should have shape (5, 21, 1)"
+    # # plt.rc('text', usetex=True)
+    # # plt.rc('font', family='serif')
+    # plt.figure(figsize=(10, 6))
+    # for i in range(P.shape[0]):
+    #     plt.plot(Nc,P[i], label=f'$P(x_H[ {i+1}])$')
+    # plt.xlabel('$N_c$')
+    # plt.ylabel('Prob. Dist. $P(x_H)$')
+    # plt.title('Probability Distributions for Different Prediction Horizons')
+    # plt.legend()
+    # plt.grid(True)
+    # plt.xticks(np.arange(-5, 6, 1))
+    # vertical_lines = x_H[0,0]  # Specify the x-values for the vertical dashed lines
+    # plt.axvline(vertical_lines, color='black', linestyle=(0, (5, 5)), linewidth=2)
+    # plt.show()
     #-----------------------------------------------------------------------------------
     
     return P
@@ -409,6 +413,8 @@ P_t_app=[]
 u_app_H = np.zeros((NoI_H, n))
 u_app_R = np.zeros((NoI_R, n))
 
+P_t_all = np.zeros((n, 1))
+
 for i in range(n):
      
     #Updates
@@ -419,11 +425,6 @@ for i in range(n):
     hat_x_R=x_R0+epsilon   
     
     # Human’s action objective function
-    
-
-
-
-    
 
 
     
@@ -462,7 +463,7 @@ for i in range(n):
             j, k = indices[0][0], indices[1][0]
             constraints = []
             for tt in range(len(indices)):# Check the constraint on x_pr
-                print(matrix[indices[tt][0],0])
+                # print(matrix[indices[tt][0],0])
                 if indices[tt][0]>=8 and indices[tt][0]<=12 and matrix[indices[tt][0],0]>P_th:                 #-- Here we define a shortcut in a way that we know the exact equivalent position of the index 9,10,11.
                                              #-- So we limit the robot to croos that position.
                     constraints.append([x_pr[t] <= -1.0,
@@ -497,17 +498,28 @@ for i in range(n):
 
     print(i)
 
-    # time = np.linspace(0, (i+1)*deltaT, i+1)
-    # plt.figure(figsize=(10, 6))
-    # for i in range(len(P_Coll)):
-    #     plt.plot(time,P_Coll, label=f'$P(x_H[ {i+1}])$')
-    # plt.xlabel('Time[s]')
-    # plt.ylabel('Prob. Dist. $P(x_H)$')
-    # plt.title('Probability Distributions for Different Prediction Horizons')
-    # plt.legend()
-    # plt.grid(True)
-    # plt.xticks(np.arange(0, 6, 1))
-    # plt.show()
+    P_t=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,betas,P_t,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)               
+    P_t_all[i]=P_t[1]
+
+np.save('P_t_all.npy', P_t_all)
+
+import pickle
+
+# Save all variables to a file
+with open('workspace.pkl', 'wb') as f:
+    pickle.dump(globals(), f)
+
+# time = np.linspace(0, (i+1)*deltaT, i+1)
+# plt.figure(figsize=(10, 6))
+# for i in range(len(P_Coll)):
+#     plt.plot(time,P_Coll, label=f'$P(x_H[ {i+1}])$')
+# plt.xlabel('Time[s]')
+# plt.ylabel('Prob. Dist. $P(x_H)$')
+# plt.title('Probability Distributions for Different Prediction Horizons')
+# plt.legend()
+# plt.grid(True)
+# plt.xticks(np.arange(0, 6, 1))
+# plt.show()
 
 
 
