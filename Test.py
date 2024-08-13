@@ -133,7 +133,7 @@ theta_4 = np.array([8.0]).reshape(-1,1)
 theta_5 = np.array([300]).reshape(-1,1) 
 theta_6 = np.array([.006]).reshape(-1,1) 
 
-x_H = -4.0*np.ones((NoS_H,n+1))
+x_H = 0.0*np.ones((NoS_H,n+1))
 x_R = -5.0*np.ones((NoS_R,n+1))  
 
 # # Generate the estimation and noise samples
@@ -366,35 +366,62 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
 #------------------------------------------------------------------------------------------
 #plot
 # Set up the plot
+# Set up the plot with subplots
+
+time = np.linspace(0, n*deltaT, n) 
+
 plt.ion()  # Turn on interactive mode
-fig, ax = plt.subplots(figsize=(10, 6))
+fig = plt.figure(figsize=(10, 5))
 
-# Initialize plot objects that will be updated
-lines = []
-for i in range(Prediction_Horizon):
-    line, = ax.plot([], [], label=f'$P(x_H[ {i+1}])$')
-    lines.append(line)
+# Create a GridSpec layout
+gs = fig.add_gridspec(2, 2, width_ratios=[1, 3], height_ratios=[1, 1])
 
-# Set up the plot details
-ax.set_xlabel('$N_c$')
-ax.set_ylabel('Prob. Dist. $P(x_H)$')
-ax.set_title('Probability Distributions for Different Prediction Horizons')
-ax.grid(True)
-ax.set_xticks(np.arange(-5, 6, 1))
-# ax.axvline(x=x_H[0,0], color='black', linestyle=(0, (5, 5)), linewidth=2)  # Example vertical line
+# First column: Two plots (one above the other)
+ax1 = fig.add_subplot(gs[0, 0])
+ax2 = fig.add_subplot(gs[1, 0])
+ax2.axhline(y=P_th, color='r', linestyle=(0, (4, 3)), linewidth=2, label='$P_{th}$')
+
+
+# Second column: One plot spanning both rows
+ax3 = fig.add_subplot(gs[:, 1])
+
+# Subplot 1: Live Plot of Scalar Parameter (Version 1)
+line1, = ax1.plot([], [], 'r-', label='$P_t(\\beta=1)$')
+ax1.set_xlim(0,deltaT*n)
+ax1.set_ylim(0, 1)  # Set y-axis limits from 0 to 1
+ax1.set_xlabel('Time')
+ax1.set_ylabel('$P_t(\\beta=1)$')  # Y-axis label in LaTeX
+ax1.grid(True)
+ax1.legend(loc='upper right')
+
+# Subplot 2: Live Plot of Scalar Parameter (Version 2)
+line2, = ax2.plot([], [], 'b-')
+ax2.set_xlim(0, deltaT*n)
+ax2.set_ylim(0, P_th+P_th*0.005)  # Set y-axis limits from 0 to 1
+ax2.set_xlabel('Time')
+ax2.set_ylabel('Collision Prob.')  # Y-axis label in LaTeX
+ax2.grid(True)
+ax2.legend(loc='upper right')
+
+# Subplot 3: Probability Distributions
+# Create the vertical line object with a label for the legend
+vertical_line, = ax3.plot([], [], color='black', linestyle=(0, (4, 3)), linewidth=2, label='Current Position')
+
+# Initialize line objects for each prediction horizon
+lines = [ax3.plot([], [], label=f'$P(x_H[ {i+1}])$')[0] for i in range(Prediction_Horizon)]
+
+ax3.set_xlabel('$N_c$')
+ax3.set_ylabel('Prob. Dist. $P(x_H)$')
+ax3.grid(True)
+ax3.set_xticks(np.arange(-5, 6, 1))
 
 # Set fixed axis limits based on expected data ranges
-ax.set_xlim(-5, 5)
-ax.set_ylim(0, 1)  # Assuming probability values between 0 and 1
-
-# Create the vertical line object but don't add it to the plot yet
-# vertical_line = ax.axvline(x=x_H[0,0], color='black', linestyle=(0, (5, 5)), linewidth=2)  # Initial position
-vertical_line, = ax.plot([], [], color='black', linestyle=(0, (5, 5)), linewidth=2)
+ax3.set_xlim(-5, 5)
+ax3.set_ylim(0, 1)  # Assuming probability values between 0 and 1
 
 
-# Fix the legend in the upper right corner (or choose another location)
-ax.legend(loc='upper right')
-
+# Move the legend of the third subplot outside the box, at the top
+ax3.legend(loc='upper right')
 #-----------------------------------------------------------------------------------------------
 
 
@@ -495,6 +522,13 @@ for i in range(n):
 
     #---------------------------------------
     #Plot
+    scalar_value = P_t_all[i]
+    line1.set_data(time[:i+1], P_t_all[:i+1])
+
+
+    # Update the line data for the second subplot
+    line2.set_data(time[:i+1], P_Coll[:i+1])
+    
 
     for j, line in enumerate(lines):
         line.set_data(Nc, P_xH[j].flatten())
@@ -506,8 +540,12 @@ for i in range(n):
     #     if line != vertical_line:
     #         line.remove()
 
-    ax.relim()   # Recalculate limits if needed
-    ax.autoscale_view()  # Rescale the view limits
+    ax1.relim()  # Recalculate limits for the first subplot
+    ax1.autoscale_view()  # Rescale the view limits for the first subplot
+    ax2.relim()  # Recalculate limits for the second subplot
+    ax2.autoscale_view()  # Rescale the view limits for the second subplot
+    ax3.relim()  # Recalculate limits for the second subplot
+    ax3.autoscale_view()  # Rescale the view limits for the second subplot
 
     plt.draw()  # Update the figure
     plt.pause(0.1)  # Pause to allow the plot to update

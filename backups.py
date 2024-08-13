@@ -133,7 +133,7 @@ theta_4 = np.array([8.0]).reshape(-1,1)
 theta_5 = np.array([300]).reshape(-1,1) 
 theta_6 = np.array([.006]).reshape(-1,1) 
 
-x_H = -4.0*np.ones((NoS_H,n+1))
+x_H = 0.0*np.ones((NoS_H,n+1))
 x_R = -5.0*np.ones((NoS_R,n+1))  
 
 # # Generate the estimation and noise samples
@@ -366,33 +366,45 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
 #------------------------------------------------------------------------------------------
 #plot
 # Set up the plot
-plt.ion()  # Turn on interactive mode
-fig, ax = plt.subplots(figsize=(10, 6))
+# Set up the plot with subplots
 
-# Initialize plot objects that will be updated
+time = np.linspace(0, n*deltaT, n) 
+
+plt.ion()  # Turn on interactive mode
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+
+# Subplot 1: Dynamic Line Plot
+line1, = ax1.plot([], [], 'r-', label='$P_t(\\beta=1)$')
+ax1.set_xlim(0, 10)
+ax1.set_ylim(0, 1)  # Set y-axis limits from 0 to 1
+ax1.set_xlabel('Time')
+ax1.set_ylabel('$P_t(\\beta=1)$')  # Y-axis label in LaTeX
+# ax1.set_title('Dynamic Line Extension Based on Scalar Parameter')
+ax1.grid(True)
+ax1.legend(loc='upper right')
+
+# Subplot 2: Probability Distributions with Vertical Line
+vertical_line, = ax2.plot([], [], color='black', linestyle=(0, (4, 3)), linewidth=2, label='Current Position')
+
 lines = []
 for i in range(Prediction_Horizon):
-    line, = ax.plot([], [], label=f'$P(x_H[ {i+1}])$')
+    line, = ax2.plot([], [], label=f'$P(x_H[ {i+1}])$')
     lines.append(line)
 
-# Set up the plot details
-ax.set_xlabel('$N_c$')
-ax.set_ylabel('Prob. Dist. $P(x_H)$')
-ax.set_title('Probability Distributions for Different Prediction Horizons')
-ax.grid(True)
-ax.set_xticks(np.arange(-5, 6, 1))
-ax.axvline(x=x_H[0,0], color='black', linestyle=(0, (5, 5)), linewidth=2)  # Example vertical line
+ax2.set_xlabel('$N_c$')
+ax2.set_ylabel('Prob. Dist. $P(x_H)$')
+# ax2.set_title('Probability Distributions for Different Prediction Horizons')
+ax2.grid(True)
+ax2.set_xticks(np.arange(-5, 6, 1))
 
 # Set fixed axis limits based on expected data ranges
-ax.set_xlim(-5, 5)
-ax.set_ylim(0, 1)  # Assuming probability values between 0 and 1
+ax2.set_xlim(-5, 5)
+ax2.set_ylim(0, 1)  # Assuming probability values between 0 and 1
 
-# Create the vertical line object but don't add it to the plot yet
-vertical_line = ax.axvline(x=x_H[0,0], color='black', linestyle=(0, (5, 5)), linewidth=2)  # Initial position
+# Create the vertical line object with a label for the legend
 
-
-# Fix the legend in the upper right corner (or choose another location)
-ax.legend(loc='upper right')
+# Fix the legend in the upper right corner
+ax2.legend(loc='upper right')
 
 #-----------------------------------------------------------------------------------------------
 
@@ -491,11 +503,26 @@ for i in range(n):
 
     P_t=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,betas,P_t,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)               
     P_t_all[i]=P_t[1]
+
+    #---------------------------------------
+    #Plot
+    scalar_value = P_t_all[i]
+    line1.set_data(time[:i+1], P_t_all[:i+1])
+
     for j, line in enumerate(lines):
         line.set_data(Nc, P_xH[j].flatten())
-        vertical_line.set_xdata(x_H[0,i % n])
-        ax.relim()   # Recalculate limits if needed
-        ax.autoscale_view()  # Rescale the view limits
+        # vertical_line.set_xdata(x_H[0,i % n])
+
+        # Clear old vertical lines
+    vertical_line.set_data([x_H[0,i % n], x_H[0,i % n]], [0, 1])  # Update position based on your data
+    # for line in ax.lines:
+    #     if line != vertical_line:
+    #         line.remove()
+
+    ax1.relim()  # Recalculate limits for the first subplot
+    ax1.autoscale_view()  # Rescale the view limits for the first subplot
+    ax2.relim()  # Recalculate limits for the second subplot
+    ax2.autoscale_view()  # Rescale the view limits for the second subplot
 
     plt.draw()  # Update the figure
     plt.pause(0.1)  # Pause to allow the plot to update
