@@ -1,6 +1,7 @@
 import numpy as np
 import cvxpy as cp
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 
 
 ## Modelling
@@ -12,7 +13,7 @@ n = 20
 Prediction_Horizon = 5
 deltaT=0.5
 
-A_R = np.array([1.0])
+A_R = np.array([1.0]).reshape(-1,1)
 B_R = np.array([deltaT]).reshape(-1,1)
 C_R = np.eye(1)
 D_R = np.zeros((1, 1))
@@ -115,11 +116,11 @@ Nc=np.array([-5.0,-4.5,-4.0,-3.5,-3.0,-2.5,-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2
 g_H = np.array([5.0]).reshape(-1,1)  
 g_R = np.array([80.0]).reshape(-1,1) 
 g_R_pr=np.tile(g_R, Prediction_Horizon) 
-v_R = np.array([2.0]).reshape(-1,1)  
-v_h = np.array([0.5]).reshape(-1,1)  
+v_R =2.0
+v_h = .5
 w_H = np.array([0.2]).reshape(-1,1)  
-u_H_values = np.array([-2, -1, 0, 1, 2]).reshape(-1,1)
-
+u_H_values = np.array([-2*v_h, -1*v_h, 0, 1*v_h, 2*v_h]).reshape(-1,1)
+u_R_values = np.array([0, .5*v_R, v_R]).reshape(-1,1)
 P_th = np.array([0.1]).reshape(-1,1)  
 T_R = np.array([5.0]).reshape(-1,1)  
 
@@ -133,7 +134,7 @@ theta_4 = np.array([8.0]).reshape(-1,1)
 theta_5 = np.array([300]).reshape(-1,1) 
 theta_6 = np.array([.006]).reshape(-1,1) 
 
-x_H = 0.0*np.ones((NoS_H,n+1))
+x_H = -5.0*np.ones((NoS_H,n+1))
 x_R = -5.0*np.ones((NoS_R,n+1))  
 
 # # Generate the estimation and noise samples
@@ -159,8 +160,9 @@ def  human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,ha
         objective = cp.Minimize(sigma_H)  
         # Constraints (ensure each row selects exactly one value from u_H_values)
         # constraints = [  cp.sum(binary_vars, axis=1) == 1]
-        constraints = [  u_H>= -2,
-                       u_H<= 2]
+    
+        constraints = [  u_H>= np.min(u_H_values),
+                       u_H<= np.max(u_H_values)]
         problem = cp.Problem(objective, constraints)
         problem.solve(solver=cp.SCS)
         if problem.status != cp.OPTIMAL:
@@ -338,27 +340,6 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
         epsilon = np.random.normal(mean, std_deviation, num_samples)
         hat_x_R=x_pr[j+1]+epsilon  
 
-
-
-
-    #-----------------------------------------------------------------------------------
-    # #print(P[:,:,0])
-    # assert P.shape == (Prediction_Horizon, len(Nc), 1), "P should have shape (5, 21, 1)"
-    # # plt.rc('text', usetex=True)
-    # # plt.rc('font', family='serif')
-    # plt.figure(figsize=(10, 6))
-    # for i in range(P.shape[0]):
-    #     plt.plot(Nc,P[i], label=f'$P(x_H[ {i+1}])$')
-    # plt.xlabel('$N_c$')
-    # plt.ylabel('Prob. Dist. $P(x_H)$')
-    # plt.title('Probability Distributions for Different Prediction Horizons')
-    # plt.legend()
-    # plt.grid(True)
-    # plt.xticks(np.arange(-5, 6, 1))
-    # vertical_lines = x_H[0,0]  # Specify the x-values for the vertical dashed lines
-    # plt.axvline(vertical_lines, color='black', linestyle=(0, (5, 5)), linewidth=2)
-    # plt.show()
-    #-----------------------------------------------------------------------------------
     
     return P
 
@@ -371,19 +352,29 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
 time = np.linspace(0, n*deltaT, n) 
 
 plt.ion()  # Turn on interactive mode
-fig = plt.figure(figsize=(10, 5))
+fig = plt.figure(figsize=(15, 5))
 
 # Create a GridSpec layout
-gs = fig.add_gridspec(2, 2, width_ratios=[1, 3], height_ratios=[1, 1])
+gs = fig.add_gridspec(2, 4, width_ratios=[1, 1, 3, 1], height_ratios=[1, 1])
 
 # First column: Two plots (one above the other)
-ax1 = fig.add_subplot(gs[0, 0])
-ax2 = fig.add_subplot(gs[1, 0])
+ax0 = fig.add_subplot(gs[:, 0])  # Moving dots spanning both rows
+ax1 = fig.add_subplot(gs[0, 1])
+ax2 = fig.add_subplot(gs[1, 1])
 ax2.axhline(y=P_th, color='r', linestyle=(0, (4, 3)), linewidth=2, label='$P_{th}$')
 
-
 # Second column: One plot spanning both rows
-ax3 = fig.add_subplot(gs[:, 1])
+ax3 = fig.add_subplot(gs[:, 2])
+
+# Subplot 0: Moving dots positions
+dot1, = ax0.plot([], [], 'ro', label='Human')  # Red dot
+dot2, = ax0.plot([], [], 'bo', label='Robot')  # Blue dot
+ax0.set_xlim(-5,5)
+ax0.set_ylim(-5, 5)
+ax0.set_xlabel('X')
+ax0.set_ylabel('Y')
+ax0.legend()
+ax0.grid(True)
 
 # Subplot 1: Live Plot of Scalar Parameter (Version 1)
 line1, = ax1.plot([], [], 'r-', label='$P_t(\\beta=1)$')
@@ -397,31 +388,70 @@ ax1.legend(loc='upper right')
 # Subplot 2: Live Plot of Scalar Parameter (Version 2)
 line2, = ax2.plot([], [], 'b-')
 ax2.set_xlim(0, deltaT*n)
-ax2.set_ylim(0, P_th+P_th*0.005)  # Set y-axis limits from 0 to 1
+ax2.set_ylim(-.001, P_th+P_th*0.005)  # Set y-axis limits from 0 to 1
+# ax2.set_ylim(-.001, 1)  # Set y-axis limits from 0 to 1
 ax2.set_xlabel('Time')
 ax2.set_ylabel('Collision Prob.')  # Y-axis label in LaTeX
 ax2.grid(True)
 ax2.legend(loc='upper right')
 
 # Subplot 3: Probability Distributions
-# Create the vertical line object with a label for the legend
 vertical_line, = ax3.plot([], [], color='black', linestyle=(0, (4, 3)), linewidth=2, label='Current Position')
 
 # Initialize line objects for each prediction horizon
 lines = [ax3.plot([], [], label=f'$P(x_H[ {i+1}])$')[0] for i in range(Prediction_Horizon)]
 
-ax3.set_xlabel('$N_c$')
+ax3.set_xlabel('$Grid Cells$')
 ax3.set_ylabel('Prob. Dist. $P(x_H)$')
 ax3.grid(True)
 ax3.set_xticks(np.arange(-5, 6, 1))
 
-# Set fixed axis limits based on expected data ranges
 ax3.set_xlim(-5, 5)
 ax3.set_ylim(0, 1)  # Assuming probability values between 0 and 1
-
-
-# Move the legend of the third subplot outside the box, at the top
 ax3.legend(loc='upper right')
+
+# Fourth column: Human and Robot Actions
+ax4 = fig.add_subplot(gs[0, 3])
+ax5 = fig.add_subplot(gs[1, 3])
+
+# Human's Action Box
+ax4.set_title("Human's Action")
+human_actions = ['Running Backward', 'Walking Backward', 'Stop', 'Walking Forward', 'Running Forward']
+circles_human = []
+
+# Create a rectangle around the Human's Action box
+rect_human = Rectangle((0.0, 0.05), 1.05, 0.95, fill=False, edgecolor='black', lw=2)
+ax4.add_patch(rect_human)
+
+for idx, action in enumerate(human_actions):
+    ax4.text(0.2, 1 - (idx + 1) * 0.15, action, verticalalignment='center', fontsize=10)
+    circle = plt.Circle((0.1, 1 - (idx + 1) * 0.15), 0.05, color='white', ec='black')
+    ax4.add_patch(circle)
+    circles_human.append(circle)
+
+ax4.set_xlim(0, 1)
+ax4.set_ylim(0, 1)
+ax4.axis('off')
+
+ #Robot's Action Box
+ax5.set_title("Robot's Action")
+robot_actions = ['Zero Speed', 'Half Speed', 'Full Speed']
+circles_robot = []
+
+# Create a rectangle around the Robot's Action box
+rect_robot = Rectangle((0.0, 0.05), .9, .9, fill=False, edgecolor='black', lw=2)
+ax5.add_patch(rect_robot)
+
+for idx, action in enumerate(robot_actions):
+    ax5.text(0.2, 1 - (idx + 1) * 0.25, action, verticalalignment='center', fontsize=10)
+    circle = plt.Circle((0.1, 1 - (idx + 1) * 0.25), 0.05, color='white', ec='black')
+    ax5.add_patch(circle)
+    circles_robot.append(circle)
+
+ax5.set_xlim(0, 1)
+ax5.set_ylim(0, 1)
+ax5.axis('off')
+
 #-----------------------------------------------------------------------------------------------
 
 
@@ -433,6 +463,7 @@ u_app_H = np.zeros((NoI_H, n))
 u_app_R = np.zeros((NoI_R, n))
 
 P_t_all = np.zeros((n, 1))
+P_Coll = np.zeros((n, 1))
 
 for i in range(n):
      
@@ -448,7 +479,7 @@ for i in range(n):
 
     
     u_H=human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta)
-    u_H=1.0
+    # u_H=1.0
     u_app_H[:, i]=u_H
     x_H[:, i+1] = A_H @ x_H[:, i] + B_H @ u_app_H[:, i]
     
@@ -461,7 +492,8 @@ for i in range(n):
     norm_x_R_g_R = cp.sum(cp.square(x_pr - g_R_pr))      
     QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R
     sigma_R = QR_g
-    u_app_Robot=2.0*np.ones((NoI_R * Prediction_Horizon,1))
+
+    u_app_Robot=v_R*np.ones((NoI_R * Prediction_Horizon,1))
     if i>=1: 
         u_app_Robot=np.tile(u_app_R[:, i], Prediction_Horizon).reshape(-1,1)
         # u_up = np.tile(Uconstraint_flat, Prediction_Horizon)
@@ -469,6 +501,7 @@ for i in range(n):
     
     P_t_ap=(u_H,u_H_values,w_H,gamma,betas,P_t,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
     P_t_app.append(P_t_ap)
+    constraints = []
     for t in range(P_xH.shape[0]):
         # Get the current 2D slice
         matrix = P_xH[t, :, :]
@@ -479,43 +512,49 @@ for i in range(n):
             indices = np.where(matrix > 0.0)
         
             # Use the first pair of indices for demonstration purposes
-            j, k = indices[0][0], indices[1][0]
-            constraints = []
-            for tt in range(len(indices)):# Check the constraint on x_pr
+            m, b = indices[0][0], indices[1][0]
+            
+            indices=np.array(indices)
+            for tt in range(indices.shape[1]):# Check the constraint on x_pr
                 # print(matrix[indices[tt][0],0])
-                if indices[tt][0]>=8 and indices[tt][0]<=12 and matrix[indices[tt][0],0]>P_th:                 #-- Here we define a shortcut in a way that we know the exact equivalent position of the index 9,10,11.
+                if indices[0][tt]>=8 and indices[0][tt]<=12 and matrix[indices[0][tt],0]>P_th:                 #-- Here we define a shortcut in a way that we know the exact equivalent position of the index 9,10,11.
                                              #-- So we limit the robot to croos that position.
-                    constraints.append([x_pr[t] <= -1.0,
-                                             x_pr[t] >= 1.0])
+                    constraints.append(x_pr[t] <=-1.0 )
+                    # constraints.append(cp.norm(x_pr[t,0]=- 1.0)
                     P_Col.append(np.array(0.0))
 
-                elif indices[tt][0]>=9 and indices[tt][0]<=11 and matrix[indices[tt][0]]<=P_th and (x_pr[ttt] >= -1.0 or x_pr[ttt] <= 1.0 for ttt in range(x_pr.shape[0])):
+                elif indices[0][tt]>=9 and indices[0][tt]<=11 and matrix[indices[0][tt]]<=P_th and t==0 and  (x_pr[ttt,0] >= -1.0 or x_pr[ttt,0] <= 1.0 for ttt in range(x_pr.shape[0])):
                 # Find the maximum value smaller than the threshold
-                    # valid_values = matrix[matrix < P_th]
                     
-                    P_Col.append(matrix[indices[tt][0]])
+                    P_Col.append(P_xH[0, indices[0][tt]])
                 #print(f"Max value smaller than threshold: {P_Coll}")
                 else:
                     P_Col.append(np.array(0.0))
 
 
-            
-    # P_Coll.append(np.max(np.array(P_Col)))
-    max_values = [np.max(p) for p in P_Col]
 
-    # Append the maximum of these values to P_Coll
-    P_Coll.append(np.max(max_values))   
+    constraints.append(u_R >= np.min(u_R_values))
+    constraints.append(u_R <= np.max(u_R_values))
+
+    max_values = [np.max(p) for p in P_Col]
+    P_Coll[i]=(np.max(max_values))   
+
     problem = cp.Problem(cp.Minimize(sigma_R), constraints)
     problem.solve(solver=cp.OSQP)
     if problem.status != cp.OPTIMAL:
         flag += 1
-    u_app_R[:, i] = u_R.value[:NoI_R, 0]
+
+    sss=u_R.value
+    
+    rounded_u_R = np.array([min(u_R_values, key=lambda x: abs(x - s)) for s in sss.flatten()]).reshape(sss.shape)
+
+    u_app_R[:, i] = rounded_u_R[:NoI_R, 0]
     sss=A_R@ x_R[:, i] 
     sdsd=B_R @ u_app_R[:, i]
     x_R[:, i+1] = A_R@ x_R[:, i] + B_R @ u_app_R[:, i]
 
 
-    print(i)
+    print(u_app_R[:, i],u_app_H[:, i])
 
     P_t=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,betas,P_t,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)               
     P_t_all[i]=P_t[1]
@@ -540,6 +579,29 @@ for i in range(n):
     #     if line != vertical_line:
     #         line.remove()
 
+
+     # Update Human's Action Circles
+    human_action_value = u_app_H[0, i % u_app_H.shape[1]]
+    for idx, circle in enumerate(circles_human):
+        if idx - 3 == human_action_value:
+            circle.set_color('black')
+        else:
+            circle.set_color('white')
+
+
+    robot_action_value = u_app_R[0, i % u_app_R.shape[1]]
+    for idx, circle in enumerate(circles_robot):
+        if idx == robot_action_value:
+            circle.set_color('black')
+        else:
+            circle.set_color('white')
+     
+
+    dot1.set_data(x_H[0,i ],0)  # Example: sine wave for dot 1
+    dot2.set_data(0,x_R[0 ,i]) 
+
+    ax0.relim()  # Recalculate limits for the moving dots subplot
+    ax0.autoscale_view()  # Rescale the view limits for the moving dots subplot
     ax1.relim()  # Recalculate limits for the first subplot
     ax1.autoscale_view()  # Rescale the view limits for the first subplot
     ax2.relim()  # Recalculate limits for the second subplot

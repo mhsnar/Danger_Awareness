@@ -1,70 +1,36 @@
-import numpy as np
 import cvxpy as cp
-import mosek
-import os
 
+# Define the prediction horizon
+Prediction_Horizon = 10  # Example value, replace with your actual value
 
-# Human Model parameters
-n = 100
-Prediction_Horizon = 10
-deltaT = 0.2
-A_H = np.array([1.0])
-B_H = np.array([deltaT]).reshape(-1, 1)
-C_H = np.eye(1)
-D_H = np.zeros((1, 1))
+# Define the dimensions
+n = 5  # Dimension of the state vector, replace with your actual value
+m = 3  # Dimension of the control input, replace with your actual value
 
-NoI_H = B_H.shape[1]
-NoS_H = A_H.shape[0]
-NoO_H = C_H.shape[0]
+# Define the variables and parameters
+x_pr = cp.Variable((n, Prediction_Horizon))  # State predictions
+u_R = cp.Parameter((m, Prediction_Horizon))  # Control inputs, should be defined elsewhere
+A_R = cp.Parameter((n, n))  # System matrix
+B_R = cp.Parameter((n, m))  # Input matrix
+x_R0 = cp.Parameter(n)  # Initial state
 
-x_H0 = np.ones((NoS_H, n))
-g_H = np.array([5.0])
-beta = np.array([1])
-theta_1 = np.array([1.0])
-theta_2 = np.array([0.5])
-theta_3 = np.array([2.5])
-theta_4 = np.array([8.0 * 10**-3])
-theta_5 = np.array([100.0])
-theta_6 = np.array([6.0 * 10**-3])
-eta_1 = np.array([1.0])
-eta_2 = np.array([1.0])
-x_R0 = np.array([1])
+# Define the constraints
+constraints = []
 
-# Generate the estimation and noise samples
-mean = 0  # Zero mean for the Gaussian noise
-covariance = 2  # Example covariance (which is the variance in 1D)
-std_deviation = np.sqrt(covariance)  # Standard deviation
-num_samples = 1  # Number of samples
+# Initial condition
+x_pr[:, 0] == A_R @ x_R0 + B_R @ u_R[:, 0]
 
-epsilon = np.random.normal(mean, std_deviation, num_samples)
-hat_x_R = x_R0 + epsilon
+# Dynamics over the prediction horizon
+for g in range(1, Prediction_Horizon):
+    x_pr[:, g] == A_R @ x_pr[:, g-1] + B_R @ u_R[:, g]
 
-# Human’s action objective function
-u_H_values = np.array([-2, -1, 0, 1, 2])  # Possible values for u_H
+# There is no specific objective function mentioned, so this is just setting up the system
+# If you need an objective, you would add it here, e.g., minimizing some norm or error.
 
-# Define binary variables
-binary_vars = cp.Variable((NoI_H, len(u_H_values)), boolean=True)
+# Problem definition (assuming no objective, just feasible solution)
+prob = cp.Problem(cp.Minimize(0), constraints)
 
-# Define u_H using matrix multiplication
-u_H = binary_vars @ u_H_values
+# Solve the problem
+prob.solve()
 
-# Define the objective
-norm_x_H_g_H = cp.norm(x_H0 - g_H, 'fro')**2
-norm_u_H = cp.norm(u_H, 'fro')**2
-QH_g = theta_3 * norm_x_H_g_H + theta_4 * norm_u_H
-QH_s = theta_5 * cp.exp(-theta_6 * cp.norm(x_H0 - hat_x_R, 'fro')**2)
-sigma_H = eta_1 * QH_g + beta * eta_2 * QH_s
-
-objective = cp.Minimize(cp.norm(u_H)*cp.norm(u_H))
-
-# Constraints
-constraints = [cp.sum(binary_vars, axis=1) == 1]
-
-# Define the problem
-problem = cp.Problem(objective, constraints)
-
-# Solve the problem using a solver that supports MIP
-problem.solve(solver=cp.CBC)  # You can also try cp.GLPK or another appropriate solver
-
-print("Optimal value: ", problem.value)
-print("Optimal u_H: ", u_H.value)
+# x_pr.value will now contain the predicted states
