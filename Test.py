@@ -1,5 +1,6 @@
 import numpy as np
 import cvxpy as cp
+from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
@@ -126,16 +127,17 @@ T_R = np.array([5.0]).reshape(-1,1)
 
 gamma = 1
 eta_1 = 1.0
-eta_2 = 1.0
+eta_2 = 3.
 theta_1 = np.array([1.0]).reshape(-1,1)   
 theta_2 = np.array([0.5]).reshape(-1,1)   
 theta_3 = np.array([2.5]).reshape(-1,1)   
 theta_4 = np.array([8.0]).reshape(-1,1)   
+theta_5 = np.array([900]).reshape(-1,1) 
 theta_5 = np.array([300]).reshape(-1,1) 
-theta_6 = np.array([.006]).reshape(-1,1) 
+theta_6 = np.array([.06]).reshape(-1,1) 
 
-x_H = -5.0*np.ones((NoS_H,n+1))
-x_R = -5.0*np.ones((NoS_R,n+1))  
+x_H = -5.*np.ones((NoS_H,n+1))
+x_R = -8.0*np.ones((NoS_R,n+1))  
 
 # # Generate the estimation and noise samples
 mean = 0  # Zero mean for the Gaussian noise
@@ -145,32 +147,72 @@ num_samples = 1  # Number of samples
 tolerance=1e-5
 
 
-def  human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta):
+def  human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta,u_H0):
         
-        u_H = cp.Variable((NoI_H , 1), nonneg=True)
-        # binary_vars = cp.Variable((NoI_H, len(u_H_values)), boolean=True)
-        # u_H = binary_vars @ u_H_values
+    # u_H = cp.Variable((NoI_H , 1), nonneg=True)
+    # binary_vars = cp.Variable((NoI_H, len(u_H_values)), boolean=True)
+    # u_H = binary_vars @ u_H_values
 
-        norm_x_H_g_H = cp.norm(x_H0+u_H - g_H,'fro')**2
-        norm_u_H = cp.norm(u_H,'fro')**2
-        QH_g = theta_3 * norm_x_H_g_H + theta_4 * norm_u_H
-                
-        QH_s=human_s_safety(x_H0,hat_x_R,theta_5,theta_6)
-        sigma_H = eta_1*QH_g+beta*eta_2*QH_s
-        objective = cp.Minimize(sigma_H)  
-        # Constraints (ensure each row selects exactly one value from u_H_values)
-        # constraints = [  cp.sum(binary_vars, axis=1) == 1]
+    # norm_x_H_g_H = cp.norm(x_H0+u_H - g_H,'fro')**2
+    # norm_u_H = cp.norm(u_H,'fro')**2
+    # QH_g = theta_3 * norm_x_H_g_H + theta_4 * norm_u_H
+#--------------------------------------------------------------------------------------------------
+# Objective function to minimize
+    def objective(u_H):
+        u_H = np.array(u_H).reshape(-1, 1)
     
-        constraints = [  u_H>= np.min(u_H_values),
-                       u_H<= np.max(u_H_values)]
-        problem = cp.Problem(objective, constraints)
-        problem.solve(solver=cp.SCS)
-        if problem.status != cp.OPTIMAL:
-            flag += 1
-        sss=u_H.value
-        closest_value = min(u_H_values, key=lambda x: abs(x - sss))
-        # print(sss)
-        return closest_value
+        # QH_g term
+        norm_x_H_g_H = np.linalg.norm(x_H0 + u_H - g_H) ** 2
+        norm_u_H = np.linalg.norm(u_H) ** 2
+        QH_g = theta_3 * norm_x_H_g_H + theta_4 * norm_u_H
+    
+        # QH_s term
+        a = np.hstack([x_H0 + u_H, np.zeros((NoI_H, 1))])  # [x_H0 + u_H, 0]
+        b = np.hstack([np.zeros((NoI_H, 1)), hat_x_R])  # [0.0, hat_x_R]
+        norm_expr = np.linalg.norm(a - b)
+        QH_s = theta_5 * np.exp(-theta_6 * norm_expr ** 2)
+    
+    # Total sigma_H
+        sigma_H = eta_1 * QH_g + beta * eta_2 * QH_s
+        return sigma_H.item()
+
+# Constraints
+    def constraint1(u_H):
+        return u_H - np.min(u_H_values)
+
+    def constraint2(u_H):
+        return np.max(u_H_values) - u_H
+
+    # Initial guess
+    # u_H0 = np.array([0.0])
+
+    # Define constraints as a dictionary
+    constraints = [{'type': 'ineq', 'fun': constraint1},
+                   {'type': 'ineq', 'fun': constraint2}]
+
+    # Optimize using scipy's minimize function
+    solution = minimize(objective, u_H0, method='SLSQP', constraints=constraints)
+
+    # Extract the optimal value of u_H
+    optimal_u_H = solution.x
+        #--------------------------------------------------------------------------------------------------
+        # QH_s=human_s_safety(x_H0,hat_x_R,theta_5,theta_6)
+        # sigma_H = eta_1*QH_g+beta*eta_2*QH_s
+        # objective = cp.Minimize(sigma_H)  
+        # # Constraints (ensure each row selects exactly one value from u_H_values)
+        # # constraints = [  cp.sum(binary_vars, axis=1) == 1]
+    
+        # constraints = [  u_H>= np.min(u_H_values),
+        #                u_H<= np.max(u_H_values)]
+        # problem = cp.Problem(objective, constraints)
+        # problem.solve(solver=cp.SCS)
+        # if problem.status != cp.OPTIMAL:
+        #     flag += 1
+    sss=optimal_u_H
+    print(sss)
+    closest_value = min(u_H_values, key=lambda x: abs(x - sss))
+    # closest_value = .5
+    return closest_value
 
 # Human Action Prediction
 def Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6):
@@ -180,7 +222,7 @@ def Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,thet
     for k in range(u_H_values.shape[0]):
         for i in range(betas.shape[0]):
             QH_g=human_s_goal(u_H_values[k,0],x_H0,g_H,theta_3,theta_4)
-            QH_s=human_s_safety(x_H0,hat_x_R,theta_5,theta_6)
+            QH_s=human_s_safety(u_H_values[k,0],x_H0,hat_x_R,theta_5,theta_6)
    
             sum_P_d+=np.exp(-gamma * (QH_g + betas[i] * QH_s))
              
@@ -190,8 +232,9 @@ def Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,thet
 
 
     QH_g=human_s_goal(u_H,x_H0,g_H,theta_3,theta_4)
-    QH_s=human_s_safety(x_H0,hat_x_R,theta_5,theta_6)        
-    P_di=np.exp(-gamma*(QH_g+ beta*QH_s))
+    QH_s=human_s_safety(u_H,x_H0,hat_x_R,theta_5,theta_6)       
+    # print(betas[0]) 
+    P_di=np.vstack((np.exp(-gamma*(QH_g+ betas[0]*QH_s)),np.exp(-gamma*(QH_g+ betas[1]*QH_s))))
     # P_d=np.array(P_di).reshape(-1,1)
     P_d=P_d/sum_P_d
     # Initialize a result matrix with the same shape as P_d
@@ -224,8 +267,8 @@ def human_s_goal(u_H,x_H0,g_H,theta_3,theta_4):
         QH_g = theta_3 * norm_x_H_g_H + theta_4 * norm_u_H
         return QH_g
     
-def human_s_safety(x_H0,hat_x_R,theta_5,theta_6):
-        a=np.vstack((x_H0,0))
+def human_s_safety(u_H,x_H0,hat_x_R,theta_5,theta_6):
+        a=np.vstack((x_H0+u_H,0))
         b=np.vstack((0.0,hat_x_R))
         QH_s=theta_5*np.exp(-theta_6*np.linalg.norm(a-b)**2)
         return QH_s
@@ -238,8 +281,8 @@ def Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,betas,P_t,x_H0,hat_x_R,g_H
     _, P_u_Hi=Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
 
     for i in range(betas.shape[0]):
-        sum_P_P_t+=P_u_Hi*P_t[i]
-        P_ti[i]=P_u_Hi*P_t[i]
+        sum_P_P_t+=P_u_Hi[i]*P_t[i]
+        P_ti[i]=P_u_Hi[i]*P_t[i]
 
     P_t=P_ti/sum_P_P_t
 
@@ -474,11 +517,14 @@ for i in range(n):
     epsilon = np.random.normal(mean, std_deviation, num_samples)
     hat_x_R=x_R0+epsilon   
     
-    # Human’s action objective function
+    # Human’s action objective function 
 
-
+        
     
-    u_H=human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta)
+    if i==0:
+        u_H=human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta,u_H0=np.array([.5]))
+    else:
+        u_H=human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta,u_app_H[:, i-1])
     # u_H=1.0
     u_app_H[:, i]=u_H
     x_H[:, i+1] = A_H @ x_H[:, i] + B_H @ u_app_H[:, i]
@@ -499,8 +545,7 @@ for i in range(n):
         # u_up = np.tile(Uconstraint_flat, Prediction_Horizon)
     P_xH=Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,P_x_H,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H)
     
-    P_t_ap=(u_H,u_H_values,w_H,gamma,betas,P_t,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
-    P_t_app.append(P_t_ap)
+
     constraints = []
     for t in range(P_xH.shape[0]):
         # Get the current 2D slice
@@ -517,9 +562,12 @@ for i in range(n):
             indices=np.array(indices)
             for tt in range(indices.shape[1]):# Check the constraint on x_pr
                 # print(matrix[indices[tt][0],0])
-                if indices[0][tt]>=8 and indices[0][tt]<=12 and matrix[indices[0][tt],0]>P_th:                 #-- Here we define a shortcut in a way that we know the exact equivalent position of the index 9,10,11.
+                if indices[0][tt]>=8 and indices[0][tt]<=12 and x_R[:, i]<=0 and matrix[indices[0][tt],0]>P_th:                 #-- Here we define a shortcut in a way that we know the exact equivalent position of the index 9,10,11.
                                              #-- So we limit the robot to croos that position.
-                    constraints.append(x_pr[t] <=-1.0 )
+                    # constraints.append(cp.norm(x_pr[t,0] - 1.0, 1) >= 1.0)
+                    constraints.append(x_pr[t,0]<=- 1.0)
+
+
                     # constraints.append(cp.norm(x_pr[t,0]=- 1.0)
                     P_Col.append(np.array(0.0))
 
@@ -540,7 +588,7 @@ for i in range(n):
     P_Coll[i]=(np.max(max_values))   
 
     problem = cp.Problem(cp.Minimize(sigma_R), constraints)
-    problem.solve(solver=cp.OSQP)
+    problem.solve()
     if problem.status != cp.OPTIMAL:
         flag += 1
 

@@ -1,36 +1,67 @@
-import cvxpy as cp
+import numpy as np
+from scipy.optimize import minimize
 
-# Define the prediction horizon
-Prediction_Horizon = 10  # Example value, replace with your actual value
+# Parameters
+NoI_H = 1
+beta = 1.0
+eta_1 = 1.0
+eta_2 = 1000000.0
+theta_1 = np.array([1.0]).reshape(-1, 1)
+theta_2 = np.array([0.5]).reshape(-1, 1)
+theta_3 = 1.0  # as set in the last part
+theta_4 = 8.0
+theta_5 = 300.0
+theta_6 = 0.006
+g_H = 10.0
+g_R = 80.0
 
-# Define the dimensions
-n = 5  # Dimension of the state vector, replace with your actual value
-m = 3  # Dimension of the control input, replace with your actual value
+v_R = 2.0
+v_h = 0.5
+u_H_values = np.array([-2 * v_h, -1 * v_h, 0, 1 * v_h, 2 * v_h]).reshape(-1, 1)
+P_th = 0.1
+T_R = 5.0
+x_H0 = -5.0
+g_H = 10.0
 
-# Define the variables and parameters
-x_pr = cp.Variable((n, Prediction_Horizon))  # State predictions
-u_R = cp.Parameter((m, Prediction_Horizon))  # Control inputs, should be defined elsewhere
-A_R = cp.Parameter((n, n))  # System matrix
-B_R = cp.Parameter((n, m))  # Input matrix
-x_R0 = cp.Parameter(n)  # Initial state
+hat_x_R = np.array([-5.0]).reshape(-1,1)
 
-# Define the constraints
-constraints = []
+# Objective function to minimize
+def objective(u_H):
+    u_H = np.array(u_H).reshape(-1, 1)
+    
+    # QH_g term
+    norm_x_H_g_H = np.linalg.norm(x_H0 + u_H - g_H) ** 2
+    norm_u_H = np.linalg.norm(u_H) ** 2
+    QH_g = theta_3 * norm_x_H_g_H + theta_4 * norm_u_H
+    
+    # QH_s term
+    a = np.hstack([x_H0 + u_H, np.zeros((NoI_H, 1))])  # [x_H0 + u_H, 0]
+    b = np.hstack([np.zeros((NoI_H, 1)), hat_x_R])  # [0.0, hat_x_R]
+    norm_expr = np.linalg.norm(a - b)
+    QH_s = theta_5 * np.exp(-theta_6 * norm_expr ** 2)
+    
+    # Total sigma_H
+    sigma_H = eta_1 * QH_g + beta * eta_2 * QH_s
+    return sigma_H.item()
 
-# Initial condition
-x_pr[:, 0] == A_R @ x_R0 + B_R @ u_R[:, 0]
+# Constraints
+def constraint1(u_H):
+    return u_H - np.min(u_H_values)
 
-# Dynamics over the prediction horizon
-for g in range(1, Prediction_Horizon):
-    x_pr[:, g] == A_R @ x_pr[:, g-1] + B_R @ u_R[:, g]
+def constraint2(u_H):
+    return np.max(u_H_values) - u_H
 
-# There is no specific objective function mentioned, so this is just setting up the system
-# If you need an objective, you would add it here, e.g., minimizing some norm or error.
+# Initial guess
+u_H0 = np.array([0.0])
 
-# Problem definition (assuming no objective, just feasible solution)
-prob = cp.Problem(cp.Minimize(0), constraints)
+# Define constraints as a dictionary
+constraints = [{'type': 'ineq', 'fun': constraint1},
+               {'type': 'ineq', 'fun': constraint2}]
 
-# Solve the problem
-prob.solve()
+# Optimize using scipy's minimize function
+solution = minimize(objective, u_H0, method='SLSQP', constraints=constraints)
 
-# x_pr.value will now contain the predicted states
+# Extract the optimal value of u_H
+optimal_u_H = solution.x
+
+print("Optimal u_H:", optimal_u_H)
