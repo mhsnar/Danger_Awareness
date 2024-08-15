@@ -66,36 +66,6 @@ NoI_H=B_H.shape[1]
 NoS_H=A_H.shape[0]
 NoO_H=C_H.shape[0]
 
-## Human Predictive model
-Abar_H = A_H
-if A_H.shape[0]==1:
-    for i in range(2, Prediction_Horizon + 1):
-        Abar_H = np.vstack((Abar_H, A_H**i))
-
-    Bbar_H = np.zeros((NoS_H * Prediction_Horizon, NoI_H * Prediction_Horizon))
-# Loop to fill Bbar with the appropriate blocks
-    for i in range(1, Prediction_Horizon + 1):
-      for j in range(1, i + 1):
-        # Compute A_H^(i-j)
-        A_power = A_H ** (i - j)
-        
-        # Compute the block (A_power * B_H), since B_H is scalar we multiply directly
-        block = A_power * B_H
-
-        # Calculate the indices for insertion
-        row_indices = slice((i - 1) * NoS_H, i * NoS_H)
-        col_indices = slice((j - 1) * NoI_H, j * NoI_H)
-
-        # Insert the block into the appropriate position in Bbar
-        Bbar_H[row_indices, col_indices] = block
-else:
-    Abar_H = np.vstack([np.linalg.matrix_power(A_H, i) for i in range(1, Prediction_Horizon+1)])
-    Bbar_H = np.zeros((NoS_H * Prediction_Horizon, NoI_H * Prediction_Horizon))
-
-    for i in range(1, Prediction_Horizon + 1):
-        for j in range(1, i + 1):
-            Bbar_H[(i-1)*NoS_H:i*NoS_H, (j-1)*NoI_H:j*NoI_H] = np.linalg.matrix_power(A_H, i-j) @ B_H
-#------------------------------------------------------------------------------------
 #------------------------------------------
 ## Contorller
 #INPUTS=x_H ,X_R
@@ -107,12 +77,8 @@ beta=1
 P_t=np.array([.5,
                 .5])
 P_x_H=-5
-# print(betas)
 
-# x_H = -5.0*np.ones((NoS_H,n))
 Nc=np.array([-5.0,-4.5,-4.0,-3.5,-3.0,-2.5,-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0]).reshape(-1,1)   
-
-# Nc=np.array([0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5]).reshape(-1,1)   
 
 g_H = np.array([5.0]).reshape(-1,1)  
 g_R = np.array([80.0]).reshape(-1,1) 
@@ -127,7 +93,7 @@ T_R = np.array([5.0]).reshape(-1,1)
 
 gamma = 1
 eta_1 = 1.0
-eta_2 = 3.
+eta_2 = 1.
 theta_1 = np.array([1.0]).reshape(-1,1)   
 theta_2 = np.array([0.5]).reshape(-1,1)   
 theta_3 = np.array([2.5]).reshape(-1,1)   
@@ -149,15 +115,7 @@ tolerance=1e-5
 
 def  human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta,u_H0):
         
-    # u_H = cp.Variable((NoI_H , 1), nonneg=True)
-    # binary_vars = cp.Variable((NoI_H, len(u_H_values)), boolean=True)
-    # u_H = binary_vars @ u_H_values
-
-    # norm_x_H_g_H = cp.norm(x_H0+u_H - g_H,'fro')**2
-    # norm_u_H = cp.norm(u_H,'fro')**2
-    # QH_g = theta_3 * norm_x_H_g_H + theta_4 * norm_u_H
-#--------------------------------------------------------------------------------------------------
-# Objective function to minimize
+    # Objective function to minimize
     def objective(u_H):
         u_H = np.array(u_H).reshape(-1, 1)
     
@@ -172,19 +130,16 @@ def  human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,ha
         norm_expr = np.linalg.norm(a - b)
         QH_s = theta_5 * np.exp(-theta_6 * norm_expr ** 2)
     
-    # Total sigma_H
+       # Total sigma_H
         sigma_H = eta_1 * QH_g + beta * eta_2 * QH_s
         return sigma_H.item()
 
-# Constraints
+      # Constraints
     def constraint1(u_H):
         return u_H - np.min(u_H_values)
 
     def constraint2(u_H):
         return np.max(u_H_values) - u_H
-
-    # Initial guess
-    # u_H0 = np.array([0.0])
 
     # Define constraints as a dictionary
     constraints = [{'type': 'ineq', 'fun': constraint1},
@@ -195,23 +150,9 @@ def  human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,ha
 
     # Extract the optimal value of u_H
     optimal_u_H = solution.x
-        #--------------------------------------------------------------------------------------------------
-        # QH_s=human_s_safety(x_H0,hat_x_R,theta_5,theta_6)
-        # sigma_H = eta_1*QH_g+beta*eta_2*QH_s
-        # objective = cp.Minimize(sigma_H)  
-        # # Constraints (ensure each row selects exactly one value from u_H_values)
-        # # constraints = [  cp.sum(binary_vars, axis=1) == 1]
-    
-        # constraints = [  u_H>= np.min(u_H_values),
-        #                u_H<= np.max(u_H_values)]
-        # problem = cp.Problem(objective, constraints)
-        # problem.solve(solver=cp.SCS)
-        # if problem.status != cp.OPTIMAL:
-        #     flag += 1
     sss=optimal_u_H
     print(sss)
     closest_value = min(u_H_values, key=lambda x: abs(x - sss))
-    # closest_value = .5
     return closest_value
 
 # Human Action Prediction
@@ -223,19 +164,15 @@ def Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,thet
         for i in range(betas.shape[0]):
             QH_g=human_s_goal(u_H_values[k,0],x_H0,g_H,theta_3,theta_4)
             QH_s=human_s_safety(u_H_values[k,0],x_H0,hat_x_R,theta_5,theta_6)
-   
             sum_P_d+=np.exp(-gamma * (QH_g + betas[i] * QH_s))
-             
             # Human’s Deliberate Behavior
             P_d[k,i]=np.exp(-gamma*(QH_g+ betas[i]*QH_s))
-            # P_di.append(np.exp(-gamma*(QH_g+ betas[i]*QH_s)))\\\
-
 
     QH_g=human_s_goal(u_H,x_H0,g_H,theta_3,theta_4)
     QH_s=human_s_safety(u_H,x_H0,hat_x_R,theta_5,theta_6)       
-    # print(betas[0]) 
+
     P_di=np.vstack((np.exp(-gamma*(QH_g+ betas[0]*QH_s)),np.exp(-gamma*(QH_g+ betas[1]*QH_s))))
-    # P_d=np.array(P_di).reshape(-1,1)
+
     P_d=P_d/sum_P_d
     # Initialize a result matrix with the same shape as P_d
     result = np.zeros_like(P_d)
@@ -247,8 +184,6 @@ def Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,thet
     # Set the corresponding element in the result matrix to 1
         result[max_index, j] = 1
  
-
-
     P_d=result
     
     P_di=P_di/sum_P_d
@@ -260,7 +195,6 @@ def Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,thet
     P_u_Hi=(1-w_H) * P_di+w_H * P_r
     return P_u_H, P_u_Hi
    
-
 def human_s_goal(u_H,x_H0,g_H,theta_3,theta_4):
         norm_x_H_g_H = np.linalg.norm(x_H0+u_H - g_H)**2
         norm_u_H = np.linalg.norm(u_H)**2
@@ -272,7 +206,6 @@ def human_s_safety(u_H,x_H0,hat_x_R,theta_5,theta_6):
         b=np.vstack((0.0,hat_x_R))
         QH_s=theta_5*np.exp(-theta_6*np.linalg.norm(a-b)**2)
         return QH_s
-
 
 # Robot’s Belief About the Human’s Danger Awareness
 def Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,betas,P_t,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6):
@@ -290,13 +223,9 @@ def Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,betas,P_t,x_H0,hat_x_R,g_H
 
 # Probability distribution of the human’s states
 def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,P_x_H,u_H_values,Prediction_Horizon,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H):
-
-     
     x_pr = Abar @ x_R0 + Bbar @ u_app_Robot
     x_pr=np.vstack((x_pr,1.0))
-
     P=np.zeros((Prediction_Horizon,Nc.shape[0],1))
-
     P_x_H=np.zeros((Nc.shape[0],1))
     x_H_next=np.zeros((u_H_values.shape[0],1))
     new_cell = []
@@ -312,15 +241,12 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
 
             unique_numbers = set(new_cell)
             new_cell = list(unique_numbers)
-            x_H0_new=[Nc[f] for f in np.array(new_cell)]
-            
+            x_H0_new=[Nc[f] for f in np.array(new_cell)]          
             new_cells=(new_cell)
             new_cell = []
         for n in range(len(np.array(new_cells))):
         
             if j>=1:
-                # x_H0_new=[Nc[f] for f in np.array(new_cell)]
-                # new_cell = []
                 x_H0_prob=x_H0_new[n]
             
             for m in range(Nc.shape[0]):
@@ -338,13 +264,11 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
                         else:
                             P_x_H_k=P[j-1,new_cells[n],:]
 
-
                     else:
                         P_x_H_k=np.array([0.0])
 
+                    P_u_H, P_u_Hi=Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0_prob,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
                     for i in range(betas.shape[0]):
-
-                        P_u_H, P_u_Hi=Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0_prob,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
                         
                         P_x_H_iks.append(P_x_H_k*P_u_H[k,i]*P_t[i])
                         if P_x_H_k*P_u_H[k,i]*P_t[i]!=0:
@@ -354,71 +278,52 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
                 sssss=np.array(P_x_H_iks).reshape(-1,1)
                 sssssst=np.sum(sssss)
                 P_x_H_iks=[]
-                
                 P_x_H[m,:]=sssssst
 
             if j==0:
                 P_x_Hn=np.zeros((1,Nc.shape[0],1))
                 P_x_Hn[:,:,:]=P_x_H 
             else:
-                P_x_Hn[n,:,:]=P_x_H      
-
-        
-           
+                P_x_Hn[n,:,:]=P_x_H             
         
         if j==0:
             P[j,:,:]= P_x_H/(sum_x_H) 
-
             new_cell=new_cell[1:]
             P_x_Hn=np.zeros((len(np.array(new_cell)),Nc.shape[0],1))
 
         else:              
             PPPPP=np.sum(P_x_Hn, axis=0)   
             P[j,:,:]=PPPPP/(sum_x_H) 
-
             P_x_Hn=np.zeros((len(np.array(new_cell)),Nc.shape[0],1))
-
-
 
         epsilon = np.random.normal(mean, std_deviation, num_samples)
         hat_x_R=x_pr[j+1]+epsilon  
 
-    
     return P
-
 
 #------------------------------------------------------------------------------------------
 #plot
-# Set up the plot
-# Set up the plot with subplots
-
 time = np.linspace(0, n*deltaT, n) 
-
 plt.ion()  # Turn on interactive mode
 fig = plt.figure(figsize=(15, 5))
-
 # Create a GridSpec layout
 gs = fig.add_gridspec(2, 4, width_ratios=[1, 1, 3, 1], height_ratios=[1, 1])
-
 # First column: Two plots (one above the other)
 ax0 = fig.add_subplot(gs[:, 0])  # Moving dots spanning both rows
 ax1 = fig.add_subplot(gs[0, 1])
 ax2 = fig.add_subplot(gs[1, 1])
 ax2.axhline(y=P_th, color='r', linestyle=(0, (4, 3)), linewidth=2, label='$P_{th}$')
-
 # Second column: One plot spanning both rows
 ax3 = fig.add_subplot(gs[:, 2])
-
 # Subplot 0: Moving dots positions
 dot1, = ax0.plot([], [], 'ro', label='Human')  # Red dot
 dot2, = ax0.plot([], [], 'bo', label='Robot')  # Blue dot
 ax0.set_xlim(-5,5)
-ax0.set_ylim(-5, 5)
+ax0.set_ylim(-10, 10)
 ax0.set_xlabel('X')
 ax0.set_ylabel('Y')
 ax0.legend()
 ax0.grid(True)
-
 # Subplot 1: Live Plot of Scalar Parameter (Version 1)
 line1, = ax1.plot([], [], 'r-', label='$P_t(\\beta=1)$')
 ax1.set_xlim(0,deltaT*n)
@@ -443,12 +348,10 @@ vertical_line, = ax3.plot([], [], color='black', linestyle=(0, (4, 3)), linewidt
 
 # Initialize line objects for each prediction horizon
 lines = [ax3.plot([], [], label=f'$P(x_H[ {i+1}])$')[0] for i in range(Prediction_Horizon)]
-
 ax3.set_xlabel('$Grid Cells$')
 ax3.set_ylabel('Prob. Dist. $P(x_H)$')
 ax3.grid(True)
 ax3.set_xticks(np.arange(-5, 6, 1))
-
 ax3.set_xlim(-5, 5)
 ax3.set_ylim(0, 1)  # Assuming probability values between 0 and 1
 ax3.legend(loc='upper right')
@@ -496,8 +399,7 @@ ax5.set_ylim(0, 1)
 ax5.axis('off')
 
 #-----------------------------------------------------------------------------------------------
-
-
+Signal=0
 flag=0
 P_Col=[]
 P_Coll=[]
@@ -518,11 +420,8 @@ for i in range(n):
     hat_x_R=x_R0+epsilon   
     
     # Human’s action objective function 
-
-        
-    
     if i==0:
-        u_H=human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta,u_H0=np.array([.5]))
+        u_H=human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta,u_H0=np.array([0.]))
     else:
         u_H=human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,eta_1,eta_2,beta,u_app_H[:, i-1])
     # u_H=1.0
@@ -530,8 +429,6 @@ for i in range(n):
     x_H[:, i+1] = A_H @ x_H[:, i] + B_H @ u_app_H[:, i]
     
     # Robot’s goal objective function
-
-    
     u_R = cp.Variable((NoI_R * Prediction_Horizon,1))
     x_pr = Abar @ x_R0 + Bbar @ u_R
     norm_u_R = cp.sum(cp.square(u_R))
@@ -579,8 +476,6 @@ for i in range(n):
                 else:
                     P_Col.append(np.array(0.0))
 
-
-
     constraints.append(u_R >= np.min(u_R_values))
     constraints.append(u_R <= np.max(u_R_values))
 
@@ -589,65 +484,52 @@ for i in range(n):
 
     problem = cp.Problem(cp.Minimize(sigma_R), constraints)
     problem.solve()
-    if problem.status != cp.OPTIMAL:
-        flag += 1
 
     sss=u_R.value
-    
     rounded_u_R = np.array([min(u_R_values, key=lambda x: abs(x - s)) for s in sss.flatten()]).reshape(sss.shape)
 
     u_app_R[:, i] = rounded_u_R[:NoI_R, 0]
-    sss=A_R@ x_R[:, i] 
-    sdsd=B_R @ u_app_R[:, i]
-    x_R[:, i+1] = A_R@ x_R[:, i] + B_R @ u_app_R[:, i]
 
+    x_R[:, i+1] = A_R@ x_R[:, i] + B_R @ u_app_R[:, i]
 
     print(u_app_R[:, i],u_app_H[:, i])
 
     P_t=Robot_s_Belief_About_HDA(u_H,u_H_values,w_H,gamma,betas,P_t,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)               
     P_t_all[i]=P_t[1]
+    
 
-    #---------------------------------------
+
+
+    # Signal 
+    if P_t_all[i]==0:
+        Signal=1
+    else:
+        Signal==0
+        beta=1
+    #-------------------------------------------------------------------------------------------------------------
     #Plot
     scalar_value = P_t_all[i]
     line1.set_data(time[:i+1], P_t_all[:i+1])
-
-
     # Update the line data for the second subplot
     line2.set_data(time[:i+1], P_Coll[:i+1])
-    
-
     for j, line in enumerate(lines):
         line.set_data(Nc, P_xH[j].flatten())
-        # vertical_line.set_xdata(x_H[0,i % n])
-
-        # Clear old vertical lines
     vertical_line.set_data([x_H[0,i % n], x_H[0,i % n]], [0, 1])  # Update position based on your data
-    # for line in ax.lines:
-    #     if line != vertical_line:
-    #         line.remove()
-
-
      # Update Human's Action Circles
     human_action_value = u_app_H[0, i % u_app_H.shape[1]]
     for idx, circle in enumerate(circles_human):
-        if idx - 3 == human_action_value:
+        if idx  == human_action_value*2+2:
             circle.set_color('black')
         else:
             circle.set_color('white')
-
-
     robot_action_value = u_app_R[0, i % u_app_R.shape[1]]
     for idx, circle in enumerate(circles_robot):
         if idx == robot_action_value:
             circle.set_color('black')
         else:
             circle.set_color('white')
-     
-
     dot1.set_data(x_H[0,i ],0)  # Example: sine wave for dot 1
     dot2.set_data(0,x_R[0 ,i]) 
-
     ax0.relim()  # Recalculate limits for the moving dots subplot
     ax0.autoscale_view()  # Rescale the view limits for the moving dots subplot
     ax1.relim()  # Recalculate limits for the first subplot
@@ -656,13 +538,10 @@ for i in range(n):
     ax2.autoscale_view()  # Rescale the view limits for the second subplot
     ax3.relim()  # Recalculate limits for the second subplot
     ax3.autoscale_view()  # Rescale the view limits for the second subplot
-
     plt.draw()  # Update the figure
     plt.pause(0.1)  # Pause to allow the plot to update
 plt.ioff()  # Turn off interactive mode
 plt.show()
-
-
 np.save('P_t_all.npy', P_t_all)
 
 
