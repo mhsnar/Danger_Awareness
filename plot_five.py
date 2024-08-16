@@ -151,6 +151,8 @@ for i in range(100):
         else:
             circle.set_color('white')
 
+    
+
     ax0.relim()
     ax0.autoscale_view()
     ax1.relim()
