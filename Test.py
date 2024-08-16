@@ -177,7 +177,7 @@ def  human_s_action(NoI_H,u_H_values,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,ha
     # Extract the optimal value of u_H
     optimal_u_H = solution.x
     sss=optimal_u_H
-    print(sss)
+
     closest_value = min(u_H_values, key=lambda x: abs(x - sss))
     return closest_value
 
@@ -321,7 +321,7 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
         
         if j==0:
             P[j,:,:]= P_x_H/(sum_x_H) 
-            print(P[j,:,:])
+
             new_cell=new_cell[1:]
             P_x_Hn=np.zeros((len(np.array(new_cell)),Nc.shape[0],1))
 
