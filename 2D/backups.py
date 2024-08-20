@@ -20,8 +20,6 @@ from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import matplotlib.colors as mcolors
-from matplotlib.patches import FancyArrowPatch
-from matplotlib.patches import FancyBboxPatch
 
 
 ## Modelling
@@ -96,7 +94,7 @@ betas=np.array([0,
 
 
 Signal="on" # Signal could be "on" or "off"
-Human="Concerned"  # Human could be "Concerned" or "Unconcerned"
+Human="Unconcerned"  # Human could be "Concerned" or "Unconcerned"
 
 
 
@@ -124,8 +122,8 @@ for i in range(Nc.shape[0]):
 Nc=coordinates_matrix        
 
 g_H = np.array([[5.],[0.0]])
-g_R = np.array([[0.],[10.0]]).reshape(-1,1) 
-g_R_pr = np.tile(g_R, (Prediction_Horizon, 1))
+g_R = np.array([[0.],[80.0]]).reshape(-1,1) 
+g_R_pr=np.tile(g_R, Prediction_Horizon) 
 v_R =2.0
 v_h = .5
 w_H = np.array([0.2]).reshape(-1,1)  
@@ -137,6 +135,15 @@ for i in range(u_H_values.shape[0]):
     for j in range(u_H_values.shape[0]):
         coordinates_matrix[i, j] = np.array([[X[i, j]], [Y[i, j]]])
 u_H_values=coordinates_matrix        
+
+
+# u_H_values = np.array([-2*v_h, -1*v_h, 0, 1*v_h, 2*v_h])
+# X, Y = np.meshgrid(u_H_values, u_H_values)
+# coordinates_matrix = np.empty((u_H_values.shape[0], u_H_values.shape[0]), dtype=object)
+# for i in range(u_H_values.shape[0]):
+#     for j in range(u_H_values.shape[0]):
+#         coordinates_matrix[i, j] = np.array([[X[i, j]], [Y[i, j]]])
+# u_H_values = coordinates_matrix
 
 
 u_R_values = np.array([0, .5*v_R, v_R])
@@ -162,12 +169,12 @@ theta_1 = np.array([1.0]).reshape(-1,1)
 theta_2 = np.array([0.5]).reshape(-1,1)   
 theta_3 = np.array([2.5]).reshape(-1,1)   
 theta_4 = np.array([8.0]).reshape(-1,1)   
+theta_5 = np.array([900]).reshape(-1,1) 
 theta_5 = np.array([300]).reshape(-1,1) 
-theta_5 = np.array([30]).reshape(-1,1) 
 theta_6 = np.array([.06]).reshape(-1,1) 
 
-x_H = np.array([[-5.],[0.0]])*np.ones((NoS_H,n+1))
-x_R = np.array([[0.],[-8.0]])*np.ones((NoS_R,n+1))  
+x_H = -5.*np.ones((NoS_H,n+1))
+x_R = -8.0*np.ones((NoS_R,n+1))  
 
 # # Generate the estimation and noise samples
 mean = 0  # Zero mean for the Gaussian noise
@@ -401,7 +408,7 @@ time = np.linspace(0, n*deltaT, n)
 plt.ion()  # Turn on interactive mode
 fig = plt.figure(figsize=(15, 5))
 # Create a GridSpec layout
-gs = fig.add_gridspec(2, 4, width_ratios=[1, 1, 3, 1], height_ratios=[1, 1],wspace=0.4)
+gs = fig.add_gridspec(2, 4, width_ratios=[1, 1, 3, 1], height_ratios=[1, 1])
 # First column: Two plots (one above the other)
 ax0 = fig.add_subplot(gs[:, 0])  # Moving dots spanning both rows
 ax1 = fig.add_subplot(gs[0, 1])
@@ -410,7 +417,7 @@ ax2.axhline(y=P_th, color='r', linestyle=(0, (4, 3)), linewidth=2, label='$P_{th
 # Second column: One plot spanning both rows
 # ax3 = fig.add_subplot(gs[:, 2])
 # Subplot 0: Moving dots positions
-dot1, = ax0.plot([], [], 'go', label='Human')  # Green dot
+dot1, = ax0.plot([], [], 'ro', label='Human')  # Red dot
 dot2, = ax0.plot([], [], 'bo', label='Robot')  # Blue dot
 ax0.set_xlim(-5,5)
 ax0.set_ylim(-10, 10)
@@ -452,8 +459,7 @@ P_normalized = np.clip(P_normalized, 0, 1)  # Clip negative values to 0
 
 # Create a custom colormap with white for zeros, light blue for small values, and black for the maximum
 colors = [(1, 1, 1), (0.678, 0.847, 0.902), (0, 0, 0)]  # White, light blue, black
-
-n_bins = 10000  # Number of bins for color gradient
+n_bins = 100  # Number of bins for color gradient
 cmap_name = 'custom_blue_to_black'
 cm = mcolors.LinearSegmentedColormap.from_list(cmap_name, colors, N=n_bins)
 
@@ -471,39 +477,46 @@ image = ax3.imshow(P_normalized[0], extent=[-5, 5, -5, 5], origin='lower',
 ax3.set_xlabel('$N_c$')
 ax3.set_ylabel('$N_c$')
 ax3.set_title('Live Probability Distribution')
-ax3.grid(True)
-ax3.minorticks_on()
-ax3.grid(which='minor', linestyle=':', linewidth=0.5)  # Minor grid lines
-
 cbar = plt.colorbar(image, ax=ax3, orientation='vertical', fraction=0.02, pad=0.04)
 
 # Fourth column: Human and Robot Actions
 ax4 = fig.add_subplot(gs[0, 3])
 ax5 = fig.add_subplot(gs[1, 3])
 
-
 # Human's Action Box
-ax4.set_title("Human's Velocity")
+ax4.set_title("Human's Action")
+human_actions = ['Running Backward', 'Walking Backward', 'Stop', 'Walking Forward', 'Running Forward']
+circles_human = []
 
 # Create a rectangle around the Human's Action box
-rect_human = FancyBboxPatch((0.0, 0.0), 1, 1, boxstyle="round,pad=0.1", edgecolor='black', linewidth=2)
+rect_human = Rectangle((0.0, 0.05), 1.05, 0.95, fill=False, edgecolor='black', lw=2)
 ax4.add_patch(rect_human)
 
-velocity_text_human = ax4.text(0.5, 0.1, '', verticalalignment='center', horizontalalignment='center',
-                               fontsize=12, color='black', bbox=dict(boxstyle="round,pad=0.5", edgecolor='black', facecolor='none'))
+for idx, action in enumerate(human_actions):
+    ax4.text(0.2, 1 - (idx + 1) * 0.15, action, verticalalignment='center', fontsize=10)
+    circle = plt.Circle((0.1, 1 - (idx + 1) * 0.15), 0.05, color='white', ec='black')
+    ax4.add_patch(circle)
+    circles_human.append(circle)
+
 ax4.set_xlim(0, 1)
 ax4.set_ylim(0, 1)
 ax4.axis('off')
 
-# Robot's Action Box
-ax5.set_title("Robot's Velocity")
+ #Robot's Action Box
+ax5.set_title("Robot's Action")
+robot_actions = ['Zero Speed', 'Half Speed', 'Full Speed']
+circles_robot = []
 
 # Create a rectangle around the Robot's Action box
-rect_robot = FancyBboxPatch((0.0, 0.0), 1, 1, boxstyle="round,pad=0.1", edgecolor='black', linewidth=2)
+rect_robot = Rectangle((0.0, 0.05), .9, .9, fill=False, edgecolor='black', lw=2)
 ax5.add_patch(rect_robot)
 
-velocity_text_robot = ax5.text(0.5, 0.1, '', verticalalignment='center', horizontalalignment='center',
-                                fontsize=12, color='black', bbox=dict(boxstyle="round,pad=0.5", edgecolor='black', facecolor='none'))
+for idx, action in enumerate(robot_actions):
+    ax5.text(0.2, 1 - (idx + 1) * 0.25, action, verticalalignment='center', fontsize=10)
+    circle = plt.Circle((0.1, 1 - (idx + 1) * 0.25), 0.05, color='white', ec='black')
+    ax5.add_patch(circle)
+    circles_robot.append(circle)
+
 ax5.set_xlim(0, 1)
 ax5.set_ylim(0, 1)
 ax5.axis('off')
@@ -537,9 +550,8 @@ for i in range(n):
 
     if i==0:
         u_H=np.array([[0.],[0.]])
-        P_xH=Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H)
-        # np.save('P_xH.npy',P_xH)
-        # P_xH=np.load('P_xH.npy')
+        # P_xH=Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H)
+        P_xH=np.load('P.npy')
         P_u_H=Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
     else:
         P_xH=Probability_distribution_of_human_s_states(u_app_H[:, i-1],u_app_Robot,w_H,gamma,beta,betas,P_t,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H)
@@ -557,80 +569,54 @@ for i in range(n):
     x_H[:, i+1] = A_H @ x_H[:, i] + B_H @ u_app_H[:, i]
     
     # Robot’s goal objective function
-    def objective(u_R):
-        u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        x_pr = Abar @ x_R0 + Bbar @ u_R
-        norm_u_R = np.sum(np.square(u_R))
-        norm_x_R_g_R = np.sum(np.square(x_pr - g_R_pr))
-        QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R
-        return QR_g[0]
+    u_R = cp.Variable((NoI_R * Prediction_Horizon,1))
+    x_pr = Abar @ x_R0 + Bbar @ u_R
+    norm_u_R = cp.sum(cp.square(u_R))
+    norm_x_R_g_R = cp.sum(cp.square(x_pr - g_R_pr))      
+    QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R
+    sigma_R = QR_g
 
-    # Define constraints
-    def constraint1(u_R):
-        u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        return np.min(u_R)  # u_R >= 0
-
-    def constraint2(u_R):
-        u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        return 2-np.max(u_R)   # u_R <= 2
-
-    def custom_constraints(u_R):
-        u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        constraints = []
-
-
-        for t in range(P_xH.shape[0]):
+    constraints = []
+    for t in range(P_xH.shape[0]):
         # Get the current 2D slice
-            matrix = P_xH[t, :, :]
+        matrix = P_xH[t, :, :]
 
         # Check if any value exceeds the threshold
-            if np.any(matrix > 0.0):
+        if np.any(matrix > 0.0):
             # Find indices where the condition is true
-                indices = np.where(matrix > 0.0)
+            indices = np.where(matrix > 0.0)
         
             # Use the first pair of indices for demonstration purposes
-                m, b = indices[0][0], indices[1][0]
-               
-                indices=np.array(indices)
-                for tt in range(indices.shape[1]):# Check the constraint on x_pr
+            m, b = indices[0][0], indices[1][0]
+            
+            indices=np.array(indices)
+            for tt in range(indices.shape[1]):# Check the constraint on x_pr
 
-                    if np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])>1. and matrix[indices[0][tt],indices[1][tt]]>P_th:                
+                if np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])>1. and matrix[indices[0][tt],indices[1][tt]]>P_th:                
                                              
-                        
-                        def constraint_fun(u_R):
-                            u_R_reshaped = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-                            x_pr_t = Abar @ x_R0 + Bbar @ u_R_reshaped
-                            return np.linalg.norm(Nc[m, b] - x_pr_t[NoI_R * t:NoI_R * (t + 1)]) - 1.5
-                        constraints.append({'type': 'ineq', 'fun': constraint_fun})
+                    constraints.append(cp.norm(Nc[indices[0,tt],indices[1,tt]]-x_pr[NoI_R * t:NoI_R * (t+1)])>=1.5)
+                    P_Col.append(np.array(0.0))
 
-
-                        P_Col.append(np.array(0.0))
-
-                    elif np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])<=1. and matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
+                elif np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])<=1. and matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
                 # Find the maximum value smaller than the threshold
                     
-                        P_Col.append(P_xH[0, indices[0][tt]])
+                    P_Col.append(P_xH[0, indices[0][tt]])
                 #print(f"Max value smaller than threshold: {P_Coll}")
-                    else:
-                        P_Col.append(np.array(0.0))
-        
-        return constraints
+                else:
+                    P_Col.append(np.array(0.0))
 
-    # Initial guess for the optimization variables
-    initial_u_R = 2*np.ones(NoI_R * Prediction_Horizon)
+    constraints.append(u_R >= np.array([[0],[0]]))
+    
+    constraints.append(u_R <= np.array([[2],[2]]))
 
-    # Setup constraints for `minimize`
-    constraints = [{'type': 'ineq', 'fun': constraint1},
-                   {'type': 'ineq', 'fun': constraint2}]
-    constraints.extend(custom_constraints(initial_u_R))
+    max_values = [np.max(p) for p in P_Col]
+    P_Coll[i]=(np.max(max_values))   
 
-    # Perform the optimization
-    result = minimize(objective, initial_u_R, constraints=constraints, method='SLSQP')
+    problem = cp.Problem(cp.Minimize(sigma_R), constraints)
+    problem.solve()
 
-    # Get the optimized values
-    optimized_u_R = result.x.reshape((NoI_R * Prediction_Horizon, 1))
-
-    rounded_u_R = min(u_R_values.flatten(), key=lambda x: np.linalg.norm(np.array([[x]]) - optimized_u_R[:NoI_R]))
+    sss=u_R.value
+    rounded_u_R = min(u_R_values.flatten(), key=lambda x: np.linalg.norm(np.array([[x]]) - sss))
     u_app_R[:, i] = rounded_u_R[:NoI_R, 0]
 
     x_R[:, i+1] = A_R@ x_R[:, i] + B_R @ u_app_R[:, i]
@@ -653,76 +639,26 @@ for i in range(n):
     line1.set_data(time[:i+1], P_t_all[:i+1])
     # Update the line data for the second subplot
     line2.set_data(time[:i+1], P_Coll[:i+1])
-  
+    
     P_normalized = P_xH 
     P_normalized = np.clip(P_normalized, 0, 1)  # Clip negative values to 0
     combined_P = np.mean(P_normalized, axis=0)  # Average over all prediction horizons
-    # image.set_data(P_normalized[0,:,:])
     image.set_data(combined_P)
 
 
-    # Update Human's Action Circles
-    human_action_value_x = u_app_H[0, i % u_app_H.shape[1]]
-    human_action_value_y = u_app_H[1, i % u_app_H.shape[1]]
-
-    robot_action_value_x = u_app_R[0, i % u_app_R.shape[1]]
-    robot_action_value_y = u_app_R[1, i % u_app_R.shape[1]]
-
-    # Update Velocity Texts
-    Vx = human_action_value_x
-    Vy = human_action_value_y
-    norm = np.sqrt(Vx**2 + Vy**2)
-    angle = np.arctan2(Vy, Vx)
-
-    # Clear previous arrows and dots
-    for artist in ax4.patches:
-        artist.remove()
-    
-    ax4.plot([], [], 'go')  # Reset the dots in the Human's Action box
-
-
-    # Draw velocity vector for human
-    start_point_human = (0.5, 0.6)
-    end_point_human = (0.5 + 0.4 * norm * np.cos(angle), 0.6 + 0.4 * norm * np.sin(angle))
-    arrow_human = FancyArrowPatch(start_point_human, end_point_human,
-                                  mutation_scale=10, arrowstyle='->', color='green', linewidth=2, transform=ax4.transAxes)
-    ax4.add_patch(arrow_human)
-    ax4.plot(*start_point_human, 'go')  # Dot at the start of the velocity vector
-    
-
-    # Update the velocity text
-    velocity_text = f'V = [{Vx:.2f}  {Vy:.2f}]'  # Horizontally oriented
-    velocity_text_human.set_text(velocity_text)
-    
-    #--------------------------------------------------------------------------
-
-
-      # Update Velocity Texts
-    Vx = robot_action_value_x
-    Vy = robot_action_value_y
-    norm = np.sqrt(Vx**2 + Vy**2)/2
-    angle = np.arctan2(Vy, Vx)
-
-    # Clear previous arrows and dots
-
-    for artist in ax5.patches:
-        artist.remove()
-
-    ax5.plot([], [], 'bo')  # Reset the dots in the Robot's Action box
-
-
-
-    # Draw velocity vector for robot
-    start_point_robot = (0.5, 0.6)
-    end_point_robot = (0.5 + 0.4 * norm * np.cos(angle), 0.6 + 0.4 * norm * np.sin(angle))
-    arrow_robot = FancyArrowPatch(start_point_robot, end_point_robot,
-                                  mutation_scale=10, arrowstyle='->', color='blue', linewidth=2, transform=ax5.transAxes)
-    ax5.add_patch(arrow_robot)
-    ax5.plot(*start_point_robot, 'bo')  # Dot at the start of the velocity vector
-
-    # Update the velocity text
-    velocity_text = f'V = [{Vx:.2f}  {Vy:.2f}]'  # Horizontally oriented
-    velocity_text_robot.set_text(velocity_text)
+     # Update Human's Action Circles
+    human_action_value = u_app_H[0, i % u_app_H.shape[1]]
+    for idx, circle in enumerate(circles_human):
+        if idx  == human_action_value*2+2:
+            circle.set_color('black')
+        else:
+            circle.set_color('white')
+    robot_action_value = u_app_R[0, i % u_app_R.shape[1]]
+    for idx, circle in enumerate(circles_robot):
+        if idx == robot_action_value:
+            circle.set_color('black')
+        else:
+            circle.set_color('white')
 
     # Check if Signal is "on" and if the line hasn't been added yet
     if Signal == "on" and not line_added and P_t_all[i]<=0.08:
@@ -747,9 +683,4 @@ for i in range(n):
     plt.pause(0.1)  # Pause to allow the plot to update
 plt.ioff()  # Turn off interactive mode
 plt.show()
-np.save('u_app_H.npy', u_app_H)
 np.save('P_t_all.npy', P_t_all)
-np.save('time.npy', time)
-np.save('P_xH.npy', P_xH)
-np.save('P_xH.npy', P_Coll)
-
