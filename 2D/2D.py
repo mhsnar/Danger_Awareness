@@ -96,7 +96,7 @@ betas=np.array([0,
 
 
 Signal="on" # Signal could be "on" or "off"
-Human="Concerned"  # Human could be "Concerned" or "Unconcerned"
+Human="Unconcerned"  # Human could be "Concerned" or "Unconcerned"
 
 
 
@@ -163,11 +163,11 @@ theta_2 = np.array([0.5]).reshape(-1,1)
 theta_3 = np.array([2.5]).reshape(-1,1)   
 theta_4 = np.array([8.0]).reshape(-1,1)   
 theta_5 = np.array([300]).reshape(-1,1) 
-theta_5 = np.array([30]).reshape(-1,1) 
+theta_5 = np.array([100]).reshape(-1,1) 
 theta_6 = np.array([.06]).reshape(-1,1) 
 
 x_H = np.array([[-5.],[0.0]])*np.ones((NoS_H,n+1))
-x_R = np.array([[0.],[-8.0]])*np.ones((NoS_R,n+1))  
+x_R = np.array([[0.],[-10.0]])*np.ones((NoS_R,n+1))  
 
 # # Generate the estimation and noise samples
 mean = 0  # Zero mean for the Gaussian noise
@@ -600,7 +600,7 @@ for i in range(n):
                         def constraint_fun(u_R):
                             u_R_reshaped = u_R.reshape((NoI_R * Prediction_Horizon, 1))
                             x_pr_t = Abar @ x_R0 + Bbar @ u_R_reshaped
-                            return np.linalg.norm(Nc[m, b] - x_pr_t[NoI_R * t:NoI_R * (t + 1)]) - 1.5
+                            return np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[NoI_R * t:NoI_R * (t + 1)]) - 1.5
                         constraints.append({'type': 'ineq', 'fun': constraint_fun})
 
 
@@ -643,7 +643,7 @@ for i in range(n):
     if P_t_all[i]<=0.08:
         if Signal == "on":
             if Human=="Unconcerned":
-                beta=0
+                beta=1
             elif Human=="Concerned":
                 beta=1
 
