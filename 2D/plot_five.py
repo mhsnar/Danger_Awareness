@@ -123,8 +123,19 @@ for i in range(100):
     P = np.random.rand(Prediction_Horizon, len(Nc), len(Nc))  # Dummy data for probability distribution
     P_normalized = P 
     P_normalized = np.clip(P_normalized, 0, 1)  # Clip negative values to 0
-    
     image.set_data(P_normalized[i % Prediction_Horizon])
+
+
+        # Update the black square representing the actual position on ax3
+    for artist in ax3.patches:
+        artist.remove()  # Remove the previous square
+
+    # Add the new black square at the current position (x_H[0, i], x_H[1, i])
+    actual_position_square = FancyBboxPatch(
+        (x_H[0, i] - 0.5, x_H[1, i] - 0.5), 1, 1,  # Position and size of the square
+        boxstyle="round,pad=0.1", edgecolor='black', facecolor='black', linewidth=1, alpha=0.7
+    )
+    ax3.add_patch(actual_position_square)
 
     line1.set_data(x[:i+1], P_t[:i+1])
     line2.set_data(x[:i+1], P_t[:i+1])

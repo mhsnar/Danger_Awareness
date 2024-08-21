@@ -30,7 +30,7 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 1
+Prediction_Horizon = 3
 deltaT=0.5
 
 A_R =  np.array([[1.0, 0.],[0.,1.]])
@@ -465,7 +465,7 @@ gs = fig.add_gridspec(2, 4, width_ratios=[1, 1, 3, 1], height_ratios=[1, 1])
 
 # Second column: Live Plot of Probability Distributions
 ax3 = fig.add_subplot(gs[:, 2])
-image = ax3.imshow(P_normalized[0], extent=[-5, 5, -5, 5], origin='lower',
+image = ax3.imshow(P_normalized[0], extent=[-5.5, 5.5, -5.5, 5.5], origin='lower',
                    cmap=cm, interpolation='nearest')
 ax3.set_xlabel('$N_c$')
 ax3.set_ylabel('$N_c$')
@@ -658,7 +658,16 @@ for i in range(n):
     combined_P = np.mean(P_normalized, axis=0)  # Average over all prediction horizons
     # image.set_data(P_normalized[0,:,:])
     image.set_data(combined_P)
+    # Update the black square representing the actual position on ax3
+    for artist in ax3.patches:
+        artist.remove()  # Remove the previous square
 
+    # Add the new black square at the current position (x_H[0, i], x_H[1, i])
+    actual_position_square = plt.Rectangle(
+        (x_H[0, i]-.25 , x_H[1, i]-.25 ), .5, .5,  # Position and size of the square
+         facecolor='black'
+    )
+    ax3.add_patch(actual_position_square)
 
     # Update Human's Action Circles
     human_action_value_x = u_app_H[0, i % u_app_H.shape[1]]
@@ -692,11 +701,9 @@ for i in range(n):
     # Update the velocity text
     velocity_text = f'V = [{Vx:.2f}  {Vy:.2f}]'  # Horizontally oriented
     velocity_text_human.set_text(velocity_text)
-    
-    #--------------------------------------------------------------------------
 
 
-      # Update Velocity Texts
+    # Update Velocity Texts
     Vx = robot_action_value_x
     Vy = robot_action_value_y
     norm = np.sqrt(Vx**2 + Vy**2)/2
