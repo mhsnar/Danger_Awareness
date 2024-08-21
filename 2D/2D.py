@@ -355,17 +355,16 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
                         else:
                             P_x_H_k=np.array([P[j-1,np.array(new_cells[n])[0],np.array(new_cells[n])[1]]])
 
-                    else:
-                        P_x_H_k=np.array([0.0])
+                    # else:
+                    #     P_x_H_k=np.array([0.0])
 
-                    P_u_H=Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0_prob,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
-                    for i in range(betas.shape[0]):
+                        P_u_H=Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0_prob,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
+                        for i in range(betas.shape[0]):
                         
-                        P_x_H_iks.append(P_x_H_k*P_u_H[kx,ky,i]*P_t[i])
-                        ssf=P_x_H_k*P_u_H[kx,ky,i]*P_t[i]
-                        if P_x_H_k*P_u_H[kx,ky,i]*P_t[i]!=0:
-                            new_cell.append(np.array([mx,my]))         
-                        sum_x_H+=P_x_H_k*P_u_H[kx,ky,i]*P_t[i]
+                            P_x_H_iks.append(P_x_H_k*P_u_H[kx,ky,i]*P_t[i])
+                            if P_x_H_k*P_u_H[kx,ky,i]*P_t[i]!=0:
+                                new_cell.append(np.array([mx,my]))         
+                            sum_x_H+=P_x_H_k*P_u_H[kx,ky,i]*P_t[i]
 
                 sssss=np.array(P_x_H_iks).reshape(-1,1)
                 sssssst=np.sum(sssss)
