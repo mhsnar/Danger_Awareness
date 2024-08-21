@@ -163,7 +163,7 @@ theta_2 = np.array([0.5]).reshape(-1,1)
 theta_3 = np.array([2.5]).reshape(-1,1)   
 theta_4 = np.array([8.0]).reshape(-1,1)   
 theta_5 = np.array([300]).reshape(-1,1) 
-theta_5 = np.array([30]).reshape(-1,1) 
+theta_5 = np.array([100]).reshape(-1,1) 
 theta_6 = np.array([.06]).reshape(-1,1) 
 
 x_H = np.array([[-5.],[0.0]])*np.ones((NoS_H,n+1))
@@ -643,7 +643,7 @@ for i in range(n):
     if P_t_all[i]<=0.08:
         if Signal == "on":
             if Human=="Unconcerned":
-                beta=0
+                beta=1
             elif Human=="Concerned":
                 beta=1
 
@@ -733,8 +733,8 @@ for i in range(n):
         # Set the flag to True so the line and text are not added again
         line_added = True
             
-    dot1.set_data(x_H[:,i ])  # Example: sine wave for dot 1
-    dot2.set_data(x_R[: ,i]) 
+    dot1.set_data([x_H[0,i ]],[x_H[1,i ]])  # Example: sine wave for dot 1
+    dot2.set_data([x_R[0 ,i]],[x_R[1 ,i]]) 
     ax0.relim()  # Recalculate limits for the moving dots subplot
     ax0.autoscale_view()  # Rescale the view limits for the moving dots subplot
     ax1.relim()  # Recalculate limits for the first subplot
