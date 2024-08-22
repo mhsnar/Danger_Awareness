@@ -95,7 +95,7 @@ betas=np.array([0,
                 1])
 
 
-Signal="on" # Signal could be "on" or "off"
+Signal="off" # Signal could be "on" or "off"
 Human="Unconcerned"  # Human could be "Concerned" or "Unconcerned"
 
 
@@ -588,12 +588,14 @@ for i in range(n):
                 indices = np.where(matrix > 0.0)
         
             # Use the first pair of indices for demonstration purposes
-                m, b = indices[0][0], indices[1][0]
+                # m, b = indices[0][0], indices[1][0]
                
                 indices=np.array(indices)
                 for tt in range(indices.shape[1]):# Check the constraint on x_pr
 
-                    if np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])>1. and matrix[indices[0][tt],indices[1][tt]]>P_th:                
+                    # if np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])>1. and matrix[indices[0][tt],indices[1][tt]]>P_th:
+                    if matrix[indices[0][tt],indices[1][tt]]>P_th: 
+                                   
                                              
                         
                         def constraint_fun(u_R):
@@ -605,7 +607,8 @@ for i in range(n):
 
                         P_Col.append(np.array(0.0))
 
-                    elif np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])<=1. and matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
+                    # elif np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])<=1. and matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
+                    elif matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
                 # Find the maximum value smaller than the threshold
                     
                         P_Col.append(P_xH[0, indices[0][tt]])
