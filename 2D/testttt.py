@@ -1,24 +1,19 @@
 import numpy as np
 
-# Define parameters
-v_h = 0.5
-w_H = np.array([0.2]).reshape(-1, 1)
+# Example values for u_H and u_H_val
+u_H = np.random.randn(6, 1).reshape(3, 2, 1)  # Shape (3, 2, 1), containing 3 (2, 1) arrays
+u_H_val = np.random.randn(2, 1)  # Example (2, 1) array
 
-# Define u_H_values
-u_H_values = np.array([-2*v_h, -1*v_h, 0, 1*v_h, 2*v_h])
+# Function to check if two (2, 1) arrays are equal
+def arrays_equal(array1, array2):
+    return np.array_equal(array1, array2)
+for i in range(u_H.shape[0]):  # Iterate over the 3 (2, 1) arrays
+    if arrays_equal(u_H_val, u_H[i]):
+# Check if u_H_val is equal to any of the (2, 1) arrays in u_H
+match_found = False
+for i in range(u_H.shape[0]):  # Iterate over the 3 (2, 1) arrays
+    if arrays_equal(u_H_val, u_H[i]):
+        match_found = True
+        break
 
-# Define optimal_u_H with shape (6, 1) - replace with actual values
-optimal_u_H = np.random.randn(6, 1)  # Example shape (6, 1)
-
-# Function to compute the closest value in u_H_values to a given value
-def find_nearest(value, u_H_values):
-    return u_H_values[np.argmin(np.abs(u_H_values - value))]
-
-# Vectorize the find_nearest function to apply it to each element in optimal_u_H
-vectorized_find_nearest = np.vectorize(lambda x: find_nearest(x, u_H_values))
-
-# Apply the vectorized function to each element in optimal_u_H
-rounded_optimal_u_H = vectorized_find_nearest(optimal_u_H)
-
-print("Original optimal_u_H:\n", optimal_u_H)
-print("Rounded optimal_u_H:\n", rounded_optimal_u_H)
+print("Match found:", match_found)
