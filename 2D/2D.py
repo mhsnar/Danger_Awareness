@@ -95,7 +95,7 @@ betas=np.array([0,
                 1])
 
 
-Signal="off" # Signal could be "on" or "off"
+Signal="on" # Signal could be "on" or "off"
 Human="Unconcerned"  # Human could be "Concerned" or "Unconcerned"
 
 
