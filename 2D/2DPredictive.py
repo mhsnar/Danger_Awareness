@@ -247,8 +247,11 @@ def human_s_action(NoI_H, u_H_value, x_H0, g_H_pr, theta_3, theta_4, theta_5, th
                    {'type': 'ineq', 'fun': constraint2}]
     
     # Flatten the initial guess just for the solver
-    u_H0_flattened = u_H0.flatten()
-
+    # u_H0_flattened = u_H0.flatten()
+  
+ 
+        # initial_u_R=u_app_R[:, i-1]
+    u_H0_flattened=np.tile(u_H0, (Prediction_Horizon, 1)).flatten()
     # Optimize using scipy's minimize function
     solution = minimize(objective, u_H0_flattened, method='trust-constr', constraints=constraints)
     
@@ -571,13 +574,11 @@ for i in range(n):
     epsilon = np.random.normal(mean, std_deviation, num_samples)
 
     if i==0:
-
-        x_pr = Abar @ x_R0 + Bbar @ initial_u_R
-        u_app_Robot=v_R*np.ones((NoI_R * Prediction_Horizon,1))
+        u_app_Robot=initial_u_R        
     else:
-        uini=np.tile(u_app_R[:, i-1].reshape(-1,1), (Prediction_Horizon, 1))
-        x_pr = Abar @ x_R0 + Bbar @ uini
         u_app_Robot=np.tile(u_app_R[:, i-1], Prediction_Horizon).reshape(-1,1)
+        
+    x_pr = Abar @ x_R0 + Bbar @ u_app_Robot    
     hat_x_R_pr=x_pr+epsilon  
     hat_x_R=x_R0+epsilon  
      
@@ -599,7 +600,7 @@ for i in range(n):
     if i==0:
  
        
-        u_H=human_s_action(NoI_H,u_H_value,x_H0,g_H_pr,theta_3,theta_4,theta_5,theta_6,hat_x_R_pr,eta_1,eta_2,beta,initial_u_H ,Prediction_Horizon,Abar_H,Bbar_H,U_H_constraints)
+        u_H=human_s_action(NoI_H,u_H_value,x_H0,g_H_pr,theta_3,theta_4,theta_5,theta_6,hat_x_R_pr,eta_1,eta_2,beta,initial_u_H [:NoI_H],Prediction_Horizon,Abar_H,Bbar_H,U_H_constraints)
     else:
         u_H=human_s_action(NoI_H,u_H_value,x_H0,g_H_pr,theta_3,theta_4,theta_5,theta_6,hat_x_R_pr,eta_1,eta_2,beta,u_app_H[:, i-1],Prediction_Horizon,Abar_H,Bbar_H,U_H_constraints)
     # u_H=1.0
@@ -727,11 +728,11 @@ for i in range(n):
     ax3.add_patch(actual_position_square)
 
     # Update Human's Action Circles
-    human_action_value_x = u_app_H[0, i % u_app_H.shape[1]]
-    human_action_value_y = u_app_H[1, i % u_app_H.shape[1]]
+    human_action_value_x = u_app_H[0, i ]
+    human_action_value_y = u_app_H[1, i ]
 
-    robot_action_value_x = u_app_R[0, i % u_app_R.shape[1]]
-    robot_action_value_y = u_app_R[1, i % u_app_R.shape[1]]
+    robot_action_value_x = u_app_R[0, i ]
+    robot_action_value_y = u_app_R[1, i ]
 
     # Update Velocity Texts
     Vx = human_action_value_x
