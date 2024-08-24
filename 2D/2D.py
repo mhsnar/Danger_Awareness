@@ -642,7 +642,7 @@ for i in range(n):
     P_t_all[i]=P_t[1]
     
     # Signal System
-    if P_t_all[i]<=0.08:
+    if P_t_all[i]>=0.08:
         if Signal == "on":
             if Human=="Unconcerned":
                 beta=1
