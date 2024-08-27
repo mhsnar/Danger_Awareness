@@ -1,19 +1,36 @@
 import numpy as np
+v_h=.5
+NoI_H=1
+betas=np.array([0,
+                1])
 
-# Example values for u_H and u_H_val
-u_H = np.random.randn(6, 1).reshape(3, 2, 1)  # Shape (3, 2, 1), containing 3 (2, 1) arrays
-u_H_val = np.random.randn(2, 1)  # Example (2, 1) array
+u_H_values = np.array([-2*v_h, -1*v_h, 0, 1*v_h, 2*v_h])
+u_H_value = np.array([-2*v_h, -1*v_h, 0, 1*v_h, 2*v_h])
+X, Y = np.meshgrid(u_H_values, u_H_values)
 
-# Function to check if two (2, 1) arrays are equal
-def arrays_equal(array1, array2):
-    return np.array_equal(array1, array2)
-for i in range(u_H.shape[0]):  # Iterate over the 3 (2, 1) arrays
-    if arrays_equal(u_H_val, u_H[i]):
-# Check if u_H_val is equal to any of the (2, 1) arrays in u_H
-match_found = False
-for i in range(u_H.shape[0]):  # Iterate over the 3 (2, 1) arrays
-    if arrays_equal(u_H_val, u_H[i]):
-        match_found = True
-        break
+coordinates_matrix = np.empty((u_H_values.shape[0], u_H_values.shape[0]), dtype=object)
+for i in range(u_H_values.shape[0]):
+    for j in range(u_H_values.shape[0]):
+        coordinates_matrix[i, j] = np.array([[X[i, j]], [Y[i, j]]])
+u_H_values=coordinates_matrix    
+P_d=np.zeros((u_H_values.shape[0],u_H_values.shape[1],betas.shape[0]))
+u_H_optimized=np.array([[-1,-1],[0,1]])
 
-print("Match found:", match_found)
+# Assume u_H_optimized is already defined with shape (NoI_H, 2)
+
+    
+    # For each i, search for u_H_optimized(NoI_H, i) in u_H_values
+for i in range(betas.shape[0]):
+        # Get the optimized value
+        optimized_value = u_H_optimized[:, i].reshape(-1,1)
+        print(optimized_value)
+        # Search for the matching pair in u_H_values
+        for row in range(u_H_values.shape[0]):
+            for col in range(u_H_values.shape[1]):
+                ddv=u_H_values[row, col]
+                if np.array_equal(u_H_values[row, col], optimized_value):
+                    # Set corresponding element in P_d to 1
+                    P_d[row, col, i] = 1
+
+sc=P_d
+print(sc)

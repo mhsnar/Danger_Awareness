@@ -272,44 +272,35 @@ def human_s_action(NoI_H, u_H_value, x_H0, g_H_pr, theta_3, theta_4, theta_5, th
 
 
 # Human Action Prediction
-def Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6):
-    sum_P_d=np.zeros((betas.shape[0],1))
+def Human_Action_Prediction(NoI_H, u_H_value,u_H_values, x_H0, g_H_pr, theta_3, theta_4, theta_5, theta_6, hat_x_R_pr, eta_1, eta_2, betas, u_H0,Prediction_Horizon_H,Abar_H,Bbar_H,U_H_constraints):
+  
     # P_di=[]
     P_d=np.zeros((u_H_values.shape[0],u_H_values.shape[1],betas.shape[0]))
-    
-    P_dk=[]
+    u_H_optimized=np.zeros((NoI_H,betas.shape[0]))
+
+
 
     for i in range(betas.shape[0]):
-        # k=0
-        for kx in range(u_H_values.shape[0]):
-          for ky in range(u_H_values.shape[1]):
-            QH_g=human_s_goal(u_H_values[kx,ky],x_H0,g_H,theta_3,theta_4)
-            QH_s=human_s_safety(u_H_values[kx,ky],x_H0,hat_x_R,theta_5,theta_6)
-            
-            # Human’s Deliberate Behavior
-            P_d[kx,ky,i]=np.exp(-gamma*(QH_g+ betas[i]*QH_s))
-            # k+=1
-        sum_P_d[i,0]+=np.exp(-gamma * (QH_g + betas[i] * QH_s))
-
-
-    P_d[:,:, 0] = P_d[:,:, 0] / sum_P_d[0, 0]
-
-    # Divide the second column of P_d by the second row of sum_P_d
-    P_d[:,:, 1] = P_d[:,:, 1] / sum_P_d[1, 0]
-    # Initialize a result matrix with the same shape as P_d
-    result = np.zeros_like(P_d)
-
-    # Iterate over each slice in the last dimension
-    for k in range(P_d.shape[2]):
-    # Find the index of the maximum value in the (5, 5) slice for each slice along the last dimension
-        max_index = np.unravel_index(np.argmax(P_d[:, :, k]), P_d[:, :, k].shape)
-    
-    # Create a mask of zeros and ones for the maximum value
-        result[max_index[0], max_index[1], k] = 1
         
  
-    P_d=result
+        u_H_optimized_all=human_s_action(NoI_H, u_H_value, x_H0, g_H_pr, theta_3, theta_4, theta_5, theta_6, hat_x_R_pr, eta_1, eta_2, betas[i], u_H0[:NoI_H],Prediction_Horizon_H,Abar_H,Bbar_H,U_H_constraints)
+        u_H_optimized[:,i]=u_H_optimized_all[:NoI_H].reshape(NoI_H)
+
     
+    # For each i, search for u_H_optimized(NoI_H, i) in u_H_values
+    for i in range(betas.shape[0]):
+        # Get the optimized value
+        optimized_value = u_H_optimized[:, i].reshape(-1,1)
+        # print(optimized_value)
+        # Search for the matching pair in u_H_values
+        for row in range(u_H_values.shape[0]):
+            for col in range(u_H_values.shape[1]):
+                if np.array_equal(u_H_values[row, col], optimized_value):
+                    # Set corresponding element in P_d to 1
+                    P_d[row, col, i] = 1
+
+    
+
     
     # Human’s Random Behavior:
     U_H=u_H_values.shape[0]*u_H_values.shape[1]
@@ -356,7 +347,8 @@ def Robot_s_Belief_About_HDA(u_H,u_H_values, betas,P_t,P_u_H):
     return P_t
 
 # Probability distribution of the human’s states
-def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,u_H_values,Prediction_Horizon,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H,NoI_H):
+def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,g_H_pr,u_H_value,u_H_values,Prediction_Horizon,x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,hat_x_R_pr,Nc,Abar,Bbar,A_H,B_H,NoI_H,u_H0,Abar_H,Bbar_H,eta_1, eta_2):
+                                            
     x_pr = Abar @ x_R0 + Bbar @ u_app_Robot
     x_pr=np.vstack((x_pr,1.0))
     P=np.zeros((Prediction_Horizon,Nc.shape[0],Nc.shape[1]))
@@ -403,16 +395,10 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
                        
                         
                         
-                        if np.array_equal(u_H_values[kx,ky], u_H[j]):
-                            dd=u_H_values[kx,ky]
-                            sdsd=u_H[j]
-                            P_u_H=Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0_prob,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
-          
-                        else:
-                            U_H=u_H_values.shape[0]*u_H_values.shape[1]
-                            P_r=1/U_H
-                            P_d=np.zeros((u_H_values.shape[0],u_H_values.shape[1],betas.shape[0]))
-                            P_u_H=(1-w_H) * P_d+w_H * P_r
+
+                    
+                        P_u_H=Human_Action_Prediction(NoI_H, u_H_value,u_H_values, x_H0_prob, g_H_pr, theta_3, theta_4, theta_5, theta_6, hat_x_R_pr, eta_1, eta_2, betas, u_H0,Prediction_Horizon_H,Abar_H,Bbar_H,U_H_constraints)
+
                             
 
 
@@ -601,13 +587,14 @@ for i in range(n):
 
     if i==0:
         
-        P_xH=Probability_distribution_of_human_s_states(initial_u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H,NoI_H)
-        # np.save('P_xH.npy',P_xH)
-        # P_xH=np.load('P_xH.npy')
-        P_u_H=Human_Action_Prediction(initial_u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
+        # P_xH=Probability_distribution_of_human_s_states(initial_u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,g_H_pr,u_H_value,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,hat_x_R_pr,Nc,Abar,Bbar,A_H,B_H,NoI_H,initial_u_H [:NoI_H],Abar_H,Bbar_H,eta_1, eta_2)
+        # np.save('P_xH_MP.npy',P_xH)
+        P_xH=np.load('P_xH_MP.npy')
+        P_u_H=Human_Action_Prediction(NoI_H, u_H_value,u_H_values, x_H0, g_H_pr, theta_3, theta_4, theta_5, theta_6, hat_x_R_pr, eta_1, eta_2, betas, initial_u_H,Prediction_Horizon_H,Abar_H,Bbar_H,U_H_constraints)
+                                    
     else:
-        P_xH=Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H,NoI_H)
-        P_u_H=Human_Action_Prediction(u_app_H[:, i-1],u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
+        P_xH=Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,g_H_pr,u_H_value,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,hat_x_R_pr,Nc,Abar,Bbar,A_H,B_H,NoI_H,u_app_H[:, i-1],Abar_H,Bbar_H,eta_1, eta_2)
+        P_u_H=Human_Action_Prediction(NoI_H, u_H_value,u_H_values, x_H0, g_H_pr, theta_3, theta_4, theta_5, theta_6, hat_x_R_pr, eta_1, eta_2, betas, u_app_H[:, i-1],Prediction_Horizon_H,Abar_H,Bbar_H,U_H_constraints)
  
 
     #Updates
