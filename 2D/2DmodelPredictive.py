@@ -137,6 +137,7 @@ P_t=np.array([.5,
                 .5])
 
 Nc=np.array([-5.0,-4.5,-4.0,-3.5,-3.0,-2.5,-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0])
+Nc=np.array([-3.0,-2.5,-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2.0,2.5,3.0])
 # Create a meshgrid for X and Y coordinates
 # Create a meshgrid for X and Y coordinates
 X, Y = np.meshgrid(Nc, Nc)
@@ -167,7 +168,8 @@ for i in range(u_H_values.shape[0]):
         coordinates_matrix[i, j] = np.array([[X[i, j]], [Y[i, j]]])
 u_H_values=coordinates_matrix        
 
-u_R_values = np.array([0, .5*v_R, v_R])
+# u_R_values = np.array([0, .5*v_R, v_R])
+u_R_values = np.array([- v_R, -.5*v_R, 0, .5*v_R, v_R])
 X, Y = np.meshgrid(u_R_values, u_R_values)
 
 # Combine X and Y into a 2D coordinate matrix
