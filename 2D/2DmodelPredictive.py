@@ -30,8 +30,8 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 3
-Prediction_Horizon_H=3
+Prediction_Horizon = 1
+Prediction_Horizon_H=1
 deltaT=0.5
 
 A_R =  np.array([[1.0, 0.],[0.,1.]])
@@ -133,6 +133,10 @@ if Human=="Concerned":
     beta=1
 elif Human=="Unconcerned":
     beta=0
+
+Safe_Distance=1.5
+
+
 P_t=np.array([.5,
                 .5])
 
@@ -589,9 +593,9 @@ for i in range(n):
 
     if i==0:
         
-        # P_xH=Probability_distribution_of_human_s_states(initial_u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,g_H_pr,u_H_value,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,hat_x_R_pr,Nc,Abar,Bbar,A_H,B_H,NoI_H,initial_u_H [:NoI_H],Abar_H,Bbar_H,eta_1, eta_2)
+        P_xH=Probability_distribution_of_human_s_states(initial_u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,g_H_pr,u_H_value,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,hat_x_R_pr,Nc,Abar,Bbar,A_H,B_H,NoI_H,initial_u_H [:NoI_H],Abar_H,Bbar_H,eta_1, eta_2)
         # np.save('P_xH_MP.npy',P_xH)
-        P_xH=np.load('P_xH_MP.npy')
+        # P_xH=np.load('P_xH_MP.npy')
         P_u_H=Human_Action_Prediction(NoI_H, u_H_value,u_H_values, x_H0, g_H_pr, theta_3, theta_4, theta_5, theta_6, hat_x_R_pr, eta_1, eta_2, betas, initial_u_H,Prediction_Horizon_H,Abar_H,Bbar_H,U_H_constraints)
                                     
     else:
@@ -657,7 +661,10 @@ for i in range(n):
                         def constraint_fun(u_R):
                             u_R_reshaped = u_R.reshape((NoI_R * Prediction_Horizon, 1))
                             x_pr_t = Abar @ x_R0 + Bbar @ u_R_reshaped
-                            return np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[NoI_R * t:NoI_R * (t + 1)]) - 1.5
+                            # Cons=np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[NoI_R * (t+1)-NoI_R:NoI_R * (t+1) - 1]) - Safe_Distance
+
+                            Cons=np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[NoI_R * t:NoI_R * (t + 1) ]) - Safe_Distance
+                            return Cons
                         constraints.append({'type': 'ineq', 'fun': constraint_fun})
 
 
