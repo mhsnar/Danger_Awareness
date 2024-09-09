@@ -73,5 +73,11 @@ locobot@locobot1:~/Downloads/Danger_Awareness-main$ rostopic list
 
 
 -----------------------------------------------------------
-[ERROR] [1725910123.152250789]: Client [/wheel_velocity_subscriber_14316_1725910123005] wants topic /mobile_base/wheel_vels to have datatype/md5sum [std_msgs/Float32MultiArray/6a40e0ffa6a17a503ac3f8616991b1f6], but our version has [irobot_create_msgs/WheelVels/731a065a78b9b6486f88d4240e988c16]. Dropping connection.
+locobot@locobot1:~$ rosmsg show irobot_create_msgs/WheelVels 
+std_msgs/Header header
+  uint32 seq
+  time stamp
+  string frame_id
+float32 velocity_left
+float32 velocity_right
 
