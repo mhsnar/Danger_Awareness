@@ -1,0 +1,128 @@
+#!/usr/bin/env python
+
+import rospy
+import math
+from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry
+from irobot_create_msgs.msg import WheelVels
+
+class RobotPDTrackingController:
+    def __init__(self):
+
+        rospy.init_node('robot_pd_tracking_controller',anonymous=True)
+        # PD controller gains
+        self.kp_linear = 1.0
+        self.kd_linear = 0.1
+        self.kp_angular = 1.5
+        self.kd_angular = 0.1
+
+        # Desired goal (x, y, theta)
+        self.goal_x = 3.0  # meters
+        self.goal_y = 3.0  # meters
+        self.goal_theta = 0.0  # radians
+
+        # Initialize errors
+        self.prev_linear_vel = 0.0
+        self.prev_time = rospy.Time.now().to_sec()
+
+        # Wheelbase
+        self.wheelbase = 0.3
+
+        # Initialize ROS node
+        rospy.init_node('robot_pd_tracking_controller', anonymous=TrueK)
+
+        # Subscribe to odometry and wheel velocities
+        self.odom_sub = rospy.Subscriber('/mobile_base/odom', Odometry, self.odom_callback)
+        self.wheel_vels_sub = rospy.Subscriber('/mobile_base/wheel_vels', WheelVels, self.wheel_vels_callback)
+
+        # Publisher for velocity commands
+        self.cmd_vel_pub = rospy.Publisher('/mobile_base/cmd_vel', Twist, queue_size=10)
+
+        # Fixed sampling time
+        self.rate = rospy.Rate(5)  # 5 Hz (0.2 seconds)
+
+        # Store wheel velocities
+        self.left_wheel_vel = 0.0
+        self.right_wheel_vel = 0.0
+
+        rospy.loginfo("Robot PD Tracking Controller Initialized")
+
+    def wheel_vels_callback(self, msg):
+        # Update wheel velocities
+        self.left_wheel_vel = msg.velocity_left
+        self.right_wheel_vel = msg.velocity_right
+
+    def odom_callback(self, msg):
+        # Extract position and orientation from odometry
+        self.current_x = msg.pose.pose.position.x
+        self.current_y = msg.pose.pose.position.y
+
+        orientation_q = msg.pose.pose.orientation
+        self.yaw = self.quaternion_to_euler(orientation_q)
+
+    def run(self):
+        while not rospy.is_shutdown():
+            # Compute the time delta
+            current_time = rospy.Time.now().to_sec()
+            dt = current_time - self.prev_time
+
+            if dt <= 0:
+                self.rate.sleep()
+                continue
+
+            # Compute position error
+            pos_error = math.sqrt((self.goal_x - self.current_x) ** 2 + (self.goal_y - self.current_y) ** 2)
+
+            # Desired angle to the goal
+            desired_theta = math.atan2(self.goal_y - self.current_y, self.goal_x - self.current_x)
+
+            # Angle error
+            angle_error = desired_theta - self.yaw
+            angle_error = (angle_error + math.pi) % (2 * math.pi) - math.pi
+
+            # Current linear velocity
+            linear_vel_robot = (self.left_wheel_vel + self.right_wheel_vel) / 2.0
+
+            # PD control for linear velocity
+            linear_error_deriv = (linear_vel_robot - self.prev_linear_vel) / dt
+            linear_vel = self.kp_linear * pos_error + self.kd_linear * linear_error_deriv
+
+            # PD control for angular velocity
+            angular_error_deriv = (angle_error - self.prev_angle_error) / dt
+            angular_vel = self.kp_angular * angle_error + self.kd_angular * angular_error_deriv
+
+            # Publish velocity commands
+            cmd_msg = Twist()
+            cmd_msg.linear.x = linear_vel
+            cmd_msg.angular.z = angular_vel
+            self.cmd_vel_pub.publish(cmd_msg)
+
+            rospy.loginfo(f"Current Position: ({self.current_x}, {self.current_y}), Yaw: {self.yaw}")
+            rospy.loginfo(f"Linear Velocity: {linear_vel_robot}, Angular Velocity: {angular_vel}")
+
+            # Update previous values
+            self.prev_linear_vel = linear_vel_robot
+            self.prev_angle_error = angle_error
+            self.prev_time = current_time
+
+            self.rate.sleep()
+
+    def quaternion_to_euler(self, orientation_q):
+        # Convert quaternion to Euler angles (yaw)
+        x = orientation_q.x
+        y = orientation_q.y
+        z = orientation_q.z
+        w = orientation_q.w
+
+        siny_cosp = 2 * (w * z + x * y)
+        cosy_cosp = 1 - 2 * (y * y + z * z)
+        yaw = math.atan2(siny_cosp, cosy_cosp)
+
+        return yaw
+
+if __name__ == '__main__':
+    try:
+        controller = RobotPDTrackingController()
+        controller.run()
+    except rospy.ROSInterruptException:
+        pass

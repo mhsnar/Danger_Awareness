@@ -1,0 +1,197 @@
+import numpy as np
+import cvxpy as cp
+import mosek
+env = mosek.Env()
+print("MOSEK license is correctly installed.")
+import os
+os.environ['MOSEKLM_LICENSE_FILE'] = r'C:\Users\mohsen.amiri\mosek\mosek.lic'
+
+# Human Mode#!/usr/bin/env python
+
+import rospy
+import math
+from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry
+from irobot_create_msgs.msg import WheelVels
+
+class RobotPDTrackingController:
+    def __init__(self):
+        # PD controller gains
+        self.kp_linear = 1.0
+        self.kd_linear = 0.1
+        self.kp_angular = 1.5
+        self.kd_angular = 0.1
+
+        # Desired goal (x, y, theta)
+        self.goal_x = 2.0  # meters
+        self.goal_y = 2.0  # meters
+        self.goal_theta = 0.0  # radians
+
+        # Initialize errors
+        self.prev_linear_vel = 0.0
+        self.prev_time = rospy.Time.now().to_sec()
+
+        # Wheelbase
+        self.wheelbase = 0.3
+
+        # Initialize ROS node
+        rospy.init_node('robot_pd_tracking_controller', anonymous=True)
+
+        # Subscribe to odometry and wheel velocities
+        self.odom_sub = rospy.Subscriber('/mobile_base/odom', Odometry, self.odom_callback)
+        self.wheel_vels_sub = rospy.Subscriber('/mobile_base/wheel_vels', WheelVels, self.wheel_vels_callback)
+
+        # Publisher for velocity commands
+        self.cmd_vel_pub = rospy.Publisher('/mobile_base/cmd_vel', Twist, queue_size=10)
+
+        # Fixed sampling time
+        self.rate = rospy.Rate(5)  # 5 Hz (0.2 seconds)
+
+        # Store wheel velocities
+        self.left_wheel_vel = 0.0
+        self.right_wheel_vel = 0.0
+
+        rospy.loginfo("Robot PD Tracking Controller Initialized")
+
+    def wheel_vels_callback(self, msg):
+        # Update wheel velocities
+        self.left_wheel_vel = msg.velocity_left
+        self.right_wheel_vel = msg.velocity_right
+
+    def odom_callback(self, msg):
+        # Extract position and orientation from odometry
+        self.current_x = msg.pose.pose.position.x
+        self.current_y = msg.pose.pose.position.y
+
+        orientation_q = msg.pose.pose.orientation
+        self.yaw = self.quaternion_to_euler(orientation_q)
+
+    def run(self):
+        while not rospy.is_shutdown():
+            # Compute the time delta
+            current_time = rospy.Time.now().to_sec()
+            dt = current_time - self.prev_time
+
+            if dt <= 0:
+                self.rate.sleep()
+                continue
+
+            # Compute position error
+            pos_error = math.sqrt((self.goal_x - self.current_x) ** 2 + (self.goal_y - self.current_y) ** 2)
+
+            # Desired angle to the goal
+            desired_theta = math.atan2(self.goal_y - self.current_y, self.goal_x - self.current_x)
+
+            # Angle error
+            angle_error = desired_theta - self.yaw
+            angle_error = (angle_error + math.pi) % (2 * math.pi) - math.pi
+
+            # Current linear velocity
+            linear_vel_robot = (self.left_wheel_vel + self.right_wheel_vel) / 2.0
+
+            # PD control for linear velocity
+            linear_error_deriv = (linear_vel_robot - self.prev_linear_vel) / dt
+            linear_vel = self.kp_linear * pos_error + self.kd_linear * linear_error_deriv
+
+            # PD control for angular velocity
+            angular_error_deriv = (angle_error - self.prev_angle_error) / dt
+            angular_vel = self.kp_angular * angle_error + self.kd_angular * angular_error_deriv
+
+            # Publish velocity commands
+            cmd_msg = Twist()
+            cmd_msg.linear.x = linear_vel
+            cmd_msg.angular.z = angular_vel
+            self.cmd_vel_pub.publish(cmd_msg)
+
+            rospy.loginfo(f"Current Position: ({self.current_x}, {self.current_y}), Yaw: {self.yaw}")
+            rospy.loginfo(f"Linear Velocity: {linear_vel_robot}, Angular Velocity: {angular_vel}")
+
+            # Update previous values
+            self.prev_linear_vel = linear_vel_robot
+            self.prev_angle_error = angle_error
+            self.prev_time = current_time
+
+            self.rate.sleep()
+
+    def quaternion_to_euler(self, orientation_q):
+        # Convert quaternion to Euler angles (yaw)
+        x = orientation_q.x
+        y = orientation_q.y
+        z = orientation_q.z
+        w = orientation_q.w
+
+        siny_cosp = 2 * (w * z + x * y)
+        cosy_cosp = 1 - 2 * (y * y + z * z)
+        yaw = math.atan2(siny_cosp, cosy_cosp)
+
+        return yaw
+
+if __name__ == '__main__':
+    try:
+        controller = RobotPDTrackingController()
+        controller.run()
+    except rospy.ROSInterruptException:
+        pass
+Prediction_Horizon = 10
+deltaT=0.2
+A_H = np.array([1.0])
+B_H = np.array([deltaT]).reshape(-1,1)
+C_H = np.eye(1)
+D_H = np.zeros((1, 1))
+
+NoI_H=B_H.shape[1]
+NoS_H=A_H.shape[0]
+NoO_H=C_H.shape[0]
+
+x_H0 = np.ones((NoS_H,n))  
+g_H = np.array([5.0])  
+beta=np.array([1])
+theta_1 = np.array([1.0])   
+theta_2 = np.array([0.5])   
+theta_3 = np.array([2.5])   
+theta_4 = np.array([8.0*10**-3])   
+theta_5 = np.array([100.0]) 
+theta_6 = np.array([6.0*10**-3]) 
+eta_1 = np.array([1.0])  
+eta_2 = np.array([1.0]) 
+x_R0 = np.array([1])  
+
+# # Generate the estimation and noise samples
+mean = 0  # Zero mean for the Gaussian noise
+covariance = 2  # Example covariance (which is the variance in 1D)
+std_deviation = np.sqrt(covariance)  # Standard deviation
+num_samples = 1  # Number of samples
+
+
+epsilon = np.random.normal(mean, std_deviation, num_samples)
+hat_x_R=x_R0+epsilon  
+
+
+    # Human’s action objective function
+    # u_H = cp.Variable((NoI_H , 1))
+u_H_values = np.array([-2, -1, 0, 1, 2])  # Possible values for u_H
+    # Define binary variables
+binary_vars = cp.Variable((NoI_H, len(u_H_values)), boolean=True)
+    # Define u_H using matrix multiplication
+u_H = binary_vars @ u_H_values
+
+
+
+
+norm_x_H_g_H = cp.norm(x_H0 - g_H,'fro')**2
+norm_u_H = cp.norm(u_H,'fro')**2
+QH_g = theta_3 * norm_x_H_g_H + theta_4 * norm_u_H
+QH_s=theta_5*cp.exp(-theta_6*cp.norm(x_H0-hat_x_R,'fro')**2)
+sigma_H = eta_1*QH_g+beta*eta_2*QH_s
+
+ 
+ 
+objective = cp.Minimize(sigma_H)  # Minimize the sum of u_H values
+
+    # Constraints (ensure each row selects exactly one value from u_H_values)
+constraints = [  cp.sum(binary_vars, axis=1) == 1]
+
+    # Define the problem
+problem = cp.Problem(objective, constraints)
+
+problem.solve(solver=cp.GLPK)
