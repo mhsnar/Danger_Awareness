@@ -95,8 +95,8 @@ betas=np.array([0,
                 1])
 
 
-Signal="on" # Signal could be "on" or "off"
-Human="Unconcerned"  # Human could be "Concerned" or "Unconcerned"
+Signal="off" # Signal could be "on" or "off"
+Human="Concerned"  # Human could be "Concerned" or "Unconcerned"
 
 
 
@@ -754,18 +754,20 @@ for i in range(n):
     ax3.autoscale_view()  # Rescale the view limits for the second subplot
     plt.draw()  # Update the figure
     plt.pause(0.1)  # Pause to allow the plot to update
-plt.ioff()  # Turn off interactive mode
-plt.show()
+#plt.ioff()  # Turn off interactive mode
+#plt.show()
 np.save('u_app_H.npy', u_app_H)
 np.save('P_t_all.npy', P_t_all)
 np.save('time.npy', time)
 np.save('P_xH.npy', P_xH)
-np.save('P_xH.npy', P_Coll)
+np.save('P_Coll.npy', P_Coll)
 np.save('x_H.npy', x_H)
 np.save('x_R.npy', x_R)
 np.save('u_app_R.npy', u_app_R)
 
 
+# Clear all variables (local scope)
+locals().clear()
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------
 #Model Predictive
@@ -1009,7 +1011,7 @@ def human_s_action(NoI_H, u_H_value, x_H0, g_H_pr, theta_3, theta_4, theta_5, th
         # Total sigma_H        
         sigma_H = eta_1 * QH_g + beta * eta_2 * QH_s
 
-        return float(sigma_H)  # Ensure the returned value is a scalar
+        return (sigma_H)  # Ensure the returned value is a scalar
 
     # Constraints
     def constraint1(u_H_flattened):
@@ -1592,19 +1594,21 @@ for i in range(n):
     ax3.autoscale_view()  # Rescale the view limits for the second subplot
     plt.draw()  # Update the figure
     plt.pause(0.1)  # Pause to allow the plot to update
-plt.ioff()  # Turn off interactive mode
-plt.show()
+#plt.ioff()  # Turn off interactive mode
+#plt.show()
 
 
 np.save('u_app_H_MP.npy', u_app_H)
 np.save('P_t_all_MP.npy', P_t_all)
 np.save('time_MP.npy', time)
 np.save('P_xH_MP.npy', P_xH)
-np.save('P_xH_MP.npy', P_Coll)
+np.save('P_Coll_MP.npy', P_Coll)
 np.save('x_H_MP.npy', x_H)
 np.save('x_R_MP.npy', x_R)
 np.save('u_app_R_MP.npy', u_app_R)
 
+# Clear all variables (local scope)
+locals().clear()
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -1739,7 +1743,7 @@ betas=np.array([0,
                 1])
 
 Signal="off" # Signal could be "on" or "off"
-Human="Unconcerned"  # Human could be "Concerned" or "Unconcerned"
+Human="Concerned"  # Human could be "Concerned" or "Unconcerned"
 
 if Human=="Concerned":
     beta=1
@@ -1842,8 +1846,8 @@ def human_s_action(NoI_H, u_H_value, x_H0, g_H_pr, theta_3, theta_4, theta_5, th
 
         # Total sigma_H        
         sigma_H = eta_1 * QH_g + beta * eta_2 * QH_s
-
-        return float(sigma_H)  # Ensure the returned value is a scalar
+        # float(sigma_H)
+        return (sigma_H)  # Ensure the returned value is a scalar
 
     # Constraints
     def constraint1(u_H_flattened):
@@ -2419,13 +2423,13 @@ for i in range(n):
     ax3.autoscale_view()  # Rescale the view limits for the second subplot
     plt.draw()  # Update the figure
     plt.pause(0.1)  # Pause to allow the plot to update
-plt.ioff()  # Turn off interactive mode
-plt.show()
+#plt.ioff()  # Turn off interactive mode
+#plt.show()
 np.save('u_app_H_P.npy', u_app_H)
 np.save('P_t_all_P.npy', P_t_all)
 np.save('time_P.npy', time)
 np.save('P_xH_P.npy', P_xH)
-np.save('P_xH_P.npy', P_Coll)
+np.save('P_Coll_P.npy', P_Coll)
 np.save('x_H_P.npy', x_H)
 np.save('x_R_P.npy', x_R)
 np.save('u_app_R_P.npy', u_app_R)
