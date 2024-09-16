@@ -30,7 +30,7 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 3
+Prediction_Horizon = 1
 deltaT=0.5
 
 A_R =  np.array([[1.0, 0.],[0.,1.]])
@@ -605,16 +605,19 @@ for i in range(n):
                         constraints.append({'type': 'ineq', 'fun': constraint_fun})
 
 
-                        P_Col.append(np.array(0.0))
+                        # P_Col.append(np.array(0.0))
+                        P_Coll[i]=np.array(0.0)
 
                     # elif np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])<=1. and matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
                     elif matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
                 # Find the maximum value smaller than the threshold
-                    
-                        P_Col.append(P_xH[0, indices[0][tt]])
+                        dvd=P_xH[0, indices[0][tt],indices[1][tt]]
+                        P_Coll[i]=dvd
+                   
                 #print(f"Max value smaller than threshold: {P_Coll}")
                     else:
-                        P_Col.append(np.array(0.0))
+                        # P_Col.append(np.array(0.0))
+                        P_Coll[i]=np.array(0.0)
         
         return constraints
 
@@ -759,6 +762,6 @@ plt.show()
 np.save('u_app_H.npy', u_app_H)
 np.save('P_t_all.npy', P_t_all)
 np.save('time.npy', time)
-np.save('P_xH.npy', P_xH)
-np.save('P_xH.npy', P_Coll)
+np.save('P_xH_all.npy', P_xH_all)
+np.save('P_Coll.npy', P_Coll)
 

@@ -603,18 +603,19 @@ for i in range(n):
                             x_pr_t = Abar @ x_R0 + Bbar @ u_R_reshaped
                             return np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[NoI_R * t:NoI_R * (t + 1)]) - 1.5
                         constraints.append({'type': 'ineq', 'fun': constraint_fun})
-
-
-                        P_Col.append(np.array(0.0))
+                        P_Coll[i]=np.array(0.0)
 
                     # elif np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])<=1. and matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
                     elif matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
                 # Find the maximum value smaller than the threshold
                     
-                        P_Col.append(P_xH[0, indices[0][tt]])
+                        # P_Col.append(P_xH[0, indices[0][tt]])
+                        dvd=P_xH[0, indices[0][tt],indices[1][tt]]
+                        P_Coll[i]=dvd
                 #print(f"Max value smaller than threshold: {P_Coll}")
                     else:
-                        P_Col.append(np.array(0.0))
+                        # P_Col.append(np.array(0.0))
+                        P_Coll[i]=np.array(0.0)
         
         return constraints
 
@@ -1442,16 +1443,20 @@ for i in range(n):
                         constraints.append({'type': 'ineq', 'fun': constraint_fun})
 
 
-                        P_Col.append(np.array(0.0))
+                        # P_Col.append(np.array(0.0))
+                        P_Coll[i]=np.array(0.0)
 
                     # elif np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])<=1. and matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
                     elif matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
                 # Find the maximum value smaller than the threshold
                     
-                        P_Col.append(P_xH[0, indices[0][tt]])
+                        # P_Col.append(P_xH[0, indices[0][tt]])
+                        dvd=P_xH[0, indices[0][tt],indices[1][tt]]
+                        P_Coll[i]=dvd
                 #print(f"Max value smaller than threshold: {P_Coll}")
                     else:
-                        P_Col.append(np.array(0.0))
+                        # P_Col.append(np.array(0.0))
+                        P_Coll[i]=np.array(0.0)
         
         return constraints
 
@@ -2271,16 +2276,19 @@ for i in range(n):
                         constraints.append({'type': 'ineq', 'fun': constraint_fun})
 
 
-                        P_Col.append(np.array(0.0))
+                        P_Coll[i]=np.array(0.0)
 
                     # elif np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])<=1. and matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
                     elif matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
                 # Find the maximum value smaller than the threshold
                     
-                        P_Col.append(P_xH[0, indices[0][tt]])
+                        # P_Col.append(P_xH[0, indices[0][tt]])
+                        dvd=P_xH[0, indices[0][tt],indices[1][tt]]
+                        P_Coll[i]=dvd
                 #print(f"Max value smaller than threshold: {P_Coll}")
                     else:
-                        P_Col.append(np.array(0.0))
+                        # P_Col.append(np.array(0.0))
+                        P_Coll[i]=np.array(0.0)
         
         return constraints
 
