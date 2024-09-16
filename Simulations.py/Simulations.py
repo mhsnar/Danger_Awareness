@@ -30,7 +30,7 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 10
+Prediction_Horizon = 1
 deltaT=0.5
 
 A_R =  np.array([[1.0, 0.],[0.,1.]])
@@ -518,7 +518,7 @@ P_Coll=[]
 P_t_app=[]
 u_app_H = np.zeros((NoI_H, n))
 u_app_R = np.zeros((NoI_R, n))
-
+P_xH_all=np.zeros((n,Prediction_Horizon,Nc.shape[0],Nc.shape[1]))
 P_t_all = np.zeros((n, 1))
 P_Coll = np.zeros((n, 1))
 
@@ -543,7 +543,7 @@ for i in range(n):
     else:
         P_xH=Probability_distribution_of_human_s_states(u_app_H[:, i-1],u_app_Robot,w_H,gamma,beta,betas,P_t,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H)
         P_u_H=Human_Action_Prediction(u_app_H[:, i-1],u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
- 
+    P_xH_all[i,:,:,:]=P_xH
 
     #Updates
     # Human’s action objective function 
@@ -759,7 +759,7 @@ for i in range(n):
 np.save('u_app_H.npy', u_app_H)
 np.save('P_t_all.npy', P_t_all)
 np.save('time.npy', time)
-np.save('P_xH.npy', P_xH)
+np.save('P_xH_all.npy', P_xH_all)
 np.save('P_Coll.npy', P_Coll)
 np.save('x_H.npy', x_H)
 np.save('x_R.npy', x_R)
@@ -1343,7 +1343,7 @@ P_Coll=[]
 P_t_app=[]
 u_app_H = np.zeros((NoI_H, n))
 u_app_R = np.zeros((NoI_R, n))
-
+P_xH_all=np.zeros((n,Prediction_Horizon,Nc.shape[0],Nc.shape[1]))
 P_t_all = np.zeros((n, 1))
 P_Coll = np.zeros((n, 1))
 
@@ -1375,7 +1375,7 @@ for i in range(n):
     else:
         P_xH=Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,g_H_pr,u_H_value,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,hat_x_R_pr,Nc,Abar,Bbar,A_H,B_H,NoI_H,u_app_H[:, i-1],Abar_H,Bbar_H,eta_1, eta_2)
         P_u_H=Human_Action_Prediction(NoI_H, u_H_value,u_H_values, x_H0, g_H_pr, theta_3, theta_4, theta_5, theta_6, hat_x_R_pr, eta_1, eta_2, betas, u_app_H[:, i-1],Prediction_Horizon_H,Abar_H,Bbar_H,U_H_constraints)
- 
+    P_xH_all[i,:,:,:]=P_xH
 
     #Updates
     # Human’s action objective function 
@@ -1601,7 +1601,7 @@ for i in range(n):
 np.save('u_app_H_MP.npy', u_app_H)
 np.save('P_t_all_MP.npy', P_t_all)
 np.save('time_MP.npy', time)
-np.save('P_xH_MP.npy', P_xH)
+np.save('P_xH_all_MP.npy', P_xH_all)
 np.save('P_Coll_MP.npy', P_Coll)
 np.save('x_H_MP.npy', x_H)
 np.save('x_R_MP.npy', x_R)
@@ -2176,7 +2176,7 @@ P_Coll=[]
 P_t_app=[]
 u_app_H = np.zeros((NoI_H, n))
 u_app_R = np.zeros((NoI_R, n))
-
+P_xH_all=np.zeros((n,Prediction_Horizon,Nc.shape[0],Nc.shape[1]))
 P_t_all = np.zeros((n, 1))
 P_Coll = np.zeros((n, 1))
 
@@ -2207,7 +2207,7 @@ for i in range(n):
     else:
         P_xH=Probability_distribution_of_human_s_states(u_app_H[:, i-1],u_app_Robot,w_H,gamma,beta,betas,P_t,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H)
         P_u_H=Human_Action_Prediction(u_app_H[:, i-1],u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
- 
+    P_xH_all[i,:,:,:]=P_xH     
 
     #Updates
     # Human’s action objective function 
@@ -2428,7 +2428,7 @@ for i in range(n):
 np.save('u_app_H_P.npy', u_app_H)
 np.save('P_t_all_P.npy', P_t_all)
 np.save('time_P.npy', time)
-np.save('P_xH_P.npy', P_xH)
+np.save('P_xH_all_P.npy', P_xH_all)
 np.save('P_Coll_P.npy', P_Coll)
 np.save('x_H_P.npy', x_H)
 np.save('x_R_P.npy', x_R)

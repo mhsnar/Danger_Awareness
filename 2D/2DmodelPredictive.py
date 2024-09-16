@@ -569,7 +569,7 @@ P_Coll=[]
 P_t_app=[]
 u_app_H = np.zeros((NoI_H, n))
 u_app_R = np.zeros((NoI_R, n))
-
+P_xH_all=np.zeros((n,Prediction_Horizon,Nc.shape[0],Nc.shape[1]))
 P_t_all = np.zeros((n, 1))
 P_Coll = np.zeros((n, 1))
 
@@ -602,7 +602,7 @@ for i in range(n):
         P_xH=Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,g_H_pr,u_H_value,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,hat_x_R_pr,Nc,Abar,Bbar,A_H,B_H,NoI_H,u_app_H[:, i-1],Abar_H,Bbar_H,eta_1, eta_2)
         P_u_H=Human_Action_Prediction(NoI_H, u_H_value,u_H_values, x_H0, g_H_pr, theta_3, theta_4, theta_5, theta_6, hat_x_R_pr, eta_1, eta_2, betas, u_app_H[:, i-1],Prediction_Horizon_H,Abar_H,Bbar_H,U_H_constraints)
  
-
+    P_xH_all[i,:,:,:]=P_xH
     #Updates
     # Human’s action objective function 
     if i==0:
