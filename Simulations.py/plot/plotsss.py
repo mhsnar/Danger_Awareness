@@ -39,10 +39,10 @@ datasets = {
     }
 }
 
-deltaT = 0.2
-n = 100
+deltaT = 0.5
+n = 20
 P_th = 0.1
-i = 10
+i = 2
 
 fig = plt.figure(figsize=(18, 10))  # Adjusted figure size
 
@@ -73,23 +73,22 @@ for idx, (title, data) in enumerate(datasets.items()):
     ax0.set_ylim(-10, 10)
     ax0.set_xlabel('X')
     ax0.set_ylabel('Y')
-    ax0.set_title(f'{title} - Moving Dots and Trajectories', pad=20)
+    # ax0.set_title(f'{title} - Moving Dots and Trajectories', pad=20)
     ax0.grid(True)
     
     # Second column: Probability Distributions Plot
     ax1 = fig.add_subplot(gs[idx, 1])
     combined_P = np.mean(data['P'], axis=0)  # Average over prediction horizon
     image = ax1.imshow(combined_P, extent=[-5.5, 5.5, -5.5, 5.5], origin='lower', interpolation='nearest')
-    if idx == 0:  # Only add label and colorbar for the first dataset
-        ax1.set_xlabel('$N_c$')
-        ax1.set_ylabel('$N_c$')
-        ax1.set_title(f'{title} - Probability Distribution', pad=20)
-        ax1.grid(True)
-        ax1.minorticks_on()
-        ax1.grid(which='minor', linestyle=':', linewidth=0.5)
-        plt.colorbar(image, ax=ax1, orientation='vertical', fraction=0.02, pad=0.04)
-    else:  # For other datasets, just plot without colorbar
-        ax1.imshow(combined_P, extent=[-5.5, 5.5, -5.5, 5.5], origin='lower', interpolation='nearest')
+
+    ax1.set_xlabel('$N_c$')
+    ax1.set_ylabel('$N_c$')
+    # ax1.set_title(f'{title} - Probability Distribution', pad=20)
+    ax1.grid(True)
+    ax1.minorticks_on()
+    ax1.grid(which='minor', linestyle=':', linewidth=0.5)
+    plt.colorbar(image, ax=ax1, orientation='vertical', fraction=0.02, pad=0.04)
+
 
 # Final plot
 plt.tight_layout()

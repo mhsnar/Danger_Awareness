@@ -30,7 +30,7 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 1
+Prediction_Horizon = 10
 deltaT=0.5
 
 A_R =  np.array([[1.0, 0.],[0.,1.]])
