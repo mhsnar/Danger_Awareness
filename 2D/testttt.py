@@ -30,7 +30,7 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 2
+Prediction_Horizon = 1
 deltaT=0.5
 
 A_R =  np.array([[1.0, 0.],[0.,1.]])
@@ -568,7 +568,7 @@ for i in range(n):
     
 
     # Objective: minimize cost function
-    objective = cp.Minimize(QR_g)
+    
 
     # Define the constraints
     constraints = []
@@ -580,7 +580,7 @@ for i in range(n):
     # Constraint 2: u_R <= 3
     constraints.append(u_R <= 2.)
 
-
+    gama=0.0
 
     theta_7=10e6
 
@@ -613,8 +613,10 @@ for i in range(n):
 
                     # constraints.append(cp.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr[NoI_R * t:NoI_R * (t + 1)]) <= tvarialbe)
 
+                    sc=Nc[indices[0,tt],indices[1,tt]] - x_pr[NoI_R * t:NoI_R * (t + 1)]
+                    gama= gama+theta_7  * (cp.norm(sc)- 2)
                     
-                    gamma= theta_7  * (cp.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr[NoI_R * t:NoI_R * (t + 1)])- 1.5)**2
+                    
                     
     
 
@@ -637,9 +639,9 @@ for i in range(n):
 
 
     # Initial guess for the optimization variables
-    if np.linalg.norm(x_R[:, i] - x_H[:, i])<=1.5:
-        QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R +gamma
-
+    if np.linalg.norm(x_R[:, i] - x_H[:, i])<=2.5:
+        QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R +gama
+    objective = cp.Minimize(QR_g)
     prob = cp.Problem(objective, constraints)
     prob.solve(solver=cp.ECOS)
 
