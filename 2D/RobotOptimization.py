@@ -179,11 +179,11 @@ def objective(u_R):
     # Define constraints
 def constraint1(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        return np.min(u_R)  # u_R >= 0
+        return np.min(u_R) -2.5 # u_R >= 0
 
 def constraint2(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        return 2-np.max(u_R)   # u_R <= 2
+        return 3-np.max(u_R)   # u_R <= 2
 P_xH=np.load('P_xH.npy')
 def custom_constraints(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
@@ -213,7 +213,7 @@ def custom_constraints(u_R):
                         def constraint_fun(u_R):
                             u_R_reshaped = u_R.reshape((NoI_R * Prediction_Horizon, 1))
                             x_pr_t = Abar @ x_R0 + Bbar @ u_R_reshaped
-                            return .5- np.linalg.norm(u_R_reshaped) 
+                            return 2.7- np.linalg.norm(u_R_reshaped) 
                         constraints.append({'type': 'ineq', 'fun': constraint_fun})
 
 
@@ -229,8 +229,11 @@ def custom_constraints(u_R):
         
         return constraints
 
-    # Initial guess for the optimization variables
-initial_u_R = 2*np.ones(NoI_R * Prediction_Horizon)
+    # Initial guess for the optimization variable
+initial_u_R = np.array([[0.],[2.]])
+
+
+initial_u_R = np.tile(initial_u_R, (Prediction_Horizon, 1)).reshape(-1,)
 
     # Setup constraints for `minimize`
 constraints = [{'type': 'ineq', 'fun': constraint1},

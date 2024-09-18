@@ -571,7 +571,7 @@ for i in range(n):
 
     def constraint2(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        return 2-np.max(u_R)   # u_R <= 2
+        return 2.0-np.max(u_R)   # u_R <= 2
 
     def custom_constraints(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))

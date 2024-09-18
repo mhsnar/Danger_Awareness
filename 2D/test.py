@@ -30,7 +30,7 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 10
+Prediction_Horizon = 2
 deltaT=0.5
 
 A_R =  np.array([[1.0, 0.],[0.,1.]])
@@ -166,8 +166,8 @@ theta_5 = np.array([300]).reshape(-1,1)
 theta_5 = np.array([100]).reshape(-1,1) 
 theta_6 = np.array([.06]).reshape(-1,1) 
 
-x_H = np.array([[-1.],[0.0]])*np.ones((NoS_H,n+1))
-x_R = np.array([[0.],[-2.0]])*np.ones((NoS_R,n+1))  
+x_H = np.array([[-5.],[0.0]])*np.ones((NoS_H,n+1))
+x_R = np.array([[0.],[-10.0]])*np.ones((NoS_R,n+1))  
 
 # # Generate the estimation and noise samples
 mean = 0  # Zero mean for the Gaussian noise
@@ -567,7 +567,7 @@ for i in range(n):
     # Define constraints
     def constraint1(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        return np.min(u_R)  # u_R >= 0
+        return np.min(u_R)- 3. # u_R >= 0
 
     def constraint2(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
@@ -601,29 +601,44 @@ for i in range(n):
                         def constraint_fun(u_R):
                             u_R_reshaped = u_R.reshape((NoI_R * Prediction_Horizon, 1))
                             x_pr_t = Abar @ x_R0 + Bbar @ u_R_reshaped
-                            return np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[NoI_R * t:NoI_R * (t + 1)]) - 1.5
+
+                            scs=Nc[indices[0,tt],indices[1,tt]]
+                            scva=indices[0,tt]-indices[1,tt]
+                            svcs=x_pr_t[NoI_R * t:NoI_R * (t + 1)]
+                            sva=np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[NoI_R * t:NoI_R * (t + 1)])
+
+ 
+
+                            # return np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[NoI_R * t:NoI_R * (t + 1)]) - 1.5
+                            return np.linalg.norm(u_R_reshaped) - 10.
                         constraints.append({'type': 'ineq', 'fun': constraint_fun})
 
 
-                        # P_Col.append(np.array(0.0))
-                        P_Coll[i]=np.array(0.0)
+                        P_Col.append(np.array(0.0))
+                        # P_Coll[i]=np.array(0.0)
 
                     # elif np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])<=1. and matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
                     elif matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
                 # Find the maximum value smaller than the threshold
                         dvd=P_xH[0, indices[0][tt],indices[1][tt]]
-                        P_Coll[i]=dvd
+                        # P_Coll[i]=dvd
+                        P_Col.append(dvd)
                    
                 #print(f"Max value smaller than threshold: {P_Coll}")
                     else:
-                        # P_Col.append(np.array(0.0))
-                        P_Coll[i]=np.array(0.0)
+                        P_Col.append(np.array(0.0))
+                        # P_Coll[i]=np.array(0.0)
         
         return constraints
 
     # Initial guess for the optimization variables
-    initial_u_R = 2*np.ones(NoI_R * Prediction_Horizon)
+    if i==0:
+        initial_u_R = np.array([[0.],[2.]])
+    else:
+        initial_u_R=u_app_R[:, i-1]
 
+    initial_u_R = np.tile(initial_u_R, (Prediction_Horizon, 1)).reshape(-1,)
+    
     # Setup constraints for `minimize`
     constraints = [{'type': 'ineq', 'fun': constraint1},
                    {'type': 'ineq', 'fun': constraint2}]
@@ -636,10 +651,13 @@ for i in range(n):
     optimized_u_R = result.x.reshape((NoI_R * Prediction_Horizon, 1))
 
     rounded_u_R = min(u_R_values.flatten(), key=lambda x: np.linalg.norm(np.array([[x]]) - optimized_u_R[:NoI_R]))
+    rounded_u_R =  optimized_u_R[:NoI_R]
     u_app_R[:, i] = rounded_u_R[:NoI_R, 0]
 
     x_R[:, i+1] = A_R@ x_R[:, i] + B_R @ u_app_R[:, i]
+    
 
+    
     # print(u_app_R[:, i],u_app_H[:, i])
     P_t=Robot_s_Belief_About_HDA(u_H,u_H_values ,betas,P_t,P_u_H)               
     P_t_all[i]=P_t[1]
@@ -653,6 +671,8 @@ for i in range(n):
                 beta=1
 
     #-------------------------------------------------------------------------------------------------------------
+    P_Coll[i]=np.max(P_Col)
+    P_Col=[]
     #Plot
     scalar_value = P_t_all[i]
     line1.set_data(time[:i+1], P_t_all[:i+1])
@@ -757,6 +777,8 @@ for i in range(n):
     ax3.autoscale_view()  # Rescale the view limits for the second subplot
     plt.draw()  # Update the figure
     plt.pause(0.1)  # Pause to allow the plot to update
+    if i>=1:
+        print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
 plt.ioff()  # Turn off interactive mode
 plt.show()
 
