@@ -30,7 +30,7 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 1
+Prediction_Horizon = 2
 deltaT=0.5
 
 A_R =  np.array([[1.0, 0.],[0.,1.]])
@@ -158,8 +158,8 @@ T_R = np.array([5.0]).reshape(-1,1)
 gamma = 1
 eta_1 = 1.0
 eta_2 = 1.
-theta_1 = np.array([1.0]).reshape(-1,1)   
-theta_2 = np.array([1.]).reshape(-1,1)   
+theta_1 = np.array([4]).reshape(-1,1)   
+theta_2 = np.array([.5]).reshape(-1,1)   
 theta_3 = np.array([2.5]).reshape(-1,1)   
 theta_4 = np.array([8.0]).reshape(-1,1)   
 theta_5 = np.array([300]).reshape(-1,1) 
