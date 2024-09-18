@@ -159,7 +159,7 @@ gamma = 1
 eta_1 = 1.0
 eta_2 = 1.
 theta_1 = np.array([1.0]).reshape(-1,1)   
-theta_2 = np.array([0.5]).reshape(-1,1)   
+theta_2 = np.array([1.]).reshape(-1,1)   
 theta_3 = np.array([2.5]).reshape(-1,1)   
 theta_4 = np.array([8.0]).reshape(-1,1)   
 theta_5 = np.array([300]).reshape(-1,1) 
@@ -582,7 +582,7 @@ for i in range(n):
 
     gama=0.0
 
-    theta_7=10e6
+    theta_7=8
 
 
     for t in range(P_xH.shape[0]):
@@ -614,7 +614,8 @@ for i in range(n):
                     # constraints.append(cp.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr[NoI_R * t:NoI_R * (t + 1)]) <= tvarialbe)
 
                     sc=Nc[indices[0,tt],indices[1,tt]] - x_pr[NoI_R * t:NoI_R * (t + 1)]
-                    gama= gama+theta_7  * (cp.norm(sc)- 2)
+                    cs=np.array([[2],[2]])
+                    gama= gama+theta_7  * (cp.norm(Nc[indices[0,tt],indices[1,tt]] -x_pr[NoI_R * t:NoI_R * (t + 1)]-cs))
                     
                     
                     
@@ -643,7 +644,7 @@ for i in range(n):
         QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R +gama
     objective = cp.Minimize(QR_g)
     prob = cp.Problem(objective, constraints)
-    prob.solve(solver=cp.ECOS)
+    prob.solve(solver=cp.SCS)
 
     # Get the optimized u_R values
     optimized_u_R = u_R.value
