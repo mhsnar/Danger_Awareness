@@ -10,7 +10,7 @@ Author:
 Date:
     [8/16/2024]
 
-Version:
+Version: 2D Model Predictive
     1.0.0
 """
 
@@ -30,9 +30,14 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 1
-Prediction_Horizon_H=1
+Prediction_Horizon = 5
+Prediction_Horizon_H=5
 deltaT=0.5
+
+Signal="off" # Signal could be "on" or "off"
+Human="Concerned"  # Human could be "Concerned" or "Unconcerned"
+
+
 
 A_R =  np.array([[1.0, 0.],[0.,1.]])
 B_R = np.array([[deltaT,0.0],[0.0,deltaT]])
@@ -126,8 +131,7 @@ else:
 betas=np.array([0,
                 1])
 
-Signal="off" # Signal could be "on" or "off"
-Human="Concerned"  # Human could be "Concerned" or "Unconcerned"
+
 
 if Human=="Concerned":
     beta=1
@@ -192,15 +196,15 @@ T_R = np.array([5.0]).reshape(-1,1)
 gamma = 1
 eta_1 = 1.0
 eta_2 = 1.
-theta_1 = np.array([1.0]).reshape(-1,1)   
-theta_2 = np.array([0.5]).reshape(-1,1)   
+theta_1 = np.array([4]).reshape(-1,1)   
+theta_2 = np.array([.5]).reshape(-1,1)   
 theta_3 = np.array([2.5]).reshape(-1,1)   
 theta_4 = np.array([8.0]).reshape(-1,1)   
 theta_5 = np.array([300]).reshape(-1,1) 
 theta_5 = np.array([100]).reshape(-1,1) 
 theta_6 = np.array([.06]).reshape(-1,1) 
 
-x_H = np.array([[-5.],[0.0]])*np.ones((NoS_H,n+1))
+x_H = np.array([[-5],[0.0]])*np.ones((NoS_H,n+1))
 x_R = np.array([[0.],[-10.0]])*np.ones((NoS_R,n+1))  
 
 U_H_constraint=np.array([[1], [1]]) 
@@ -615,94 +619,91 @@ for i in range(n):
     u_app_H[:, i]=u_H[:NoI_H].flatten()
     x_H[:, i+1] = A_H @ x_H[:, i] + B_H @ u_app_H[:, i]
     
-    # Robot’s goal objective function
-    def objective(u_R):
-        u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        x_pr = Abar @ x_R0 + Bbar @ u_R
-        norm_u_R = np.sum(np.square(u_R))
-        norm_x_R_g_R = np.sum(np.square(x_pr - g_R_pr))
-        QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R
-        return QR_g[0]
 
-    # Define constraints
-    def constraint1(u_R):
-        u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        return np.min(u_R)  # u_R >= 0
+    u_R = cp.Variable((NoI_R * Prediction_Horizon, 1))
+    tvarialbe = cp.Variable()
+    
+    
+    x_pr = Abar @ x_R0 + Bbar @ u_R
+    norm_x_R_g_R = cp.sum_squares(x_pr - g_R_pr)
+    norm_u_R = cp.sum_squares(u_R)
+    QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R
+    
 
-    def constraint2(u_R):
-        u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        return 2.0-np.max(u_R)   # u_R <= 2
+    # Objective: minimize cost function
+    
 
-    def custom_constraints(u_R):
-        u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        constraints = []
+    # Define the constraints
+    constraints = []
+    
+    constraints.append(tvarialbe >= 1.5)
+    # Constraint 1: u_R >= -2.5
+    constraints.append(u_R >= -2.)
 
+    # Constraint 2: u_R <= 3
+    constraints.append(u_R <= 2.)
 
-        for t in range(P_xH.shape[0]):
-        # Get the current 2D slice
-            matrix = P_xH[t, :, :]
+    gama=0.0
 
-        # Check if any value exceeds the threshold
-            if np.any(matrix > 0.0):
-            # Find indices where the condition is true
-                indices = np.where(matrix > 0.0)
-        
-            # Use the first pair of indices for demonstration purposes
-                # m, b = indices[0][0], indices[1][0]
-               
-                indices=np.array(indices)
-                for tt in range(indices.shape[1]):# Check the constraint on x_pr
-
-                    # if np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])>1. and matrix[indices[0][tt],indices[1][tt]]>P_th:
-                    if matrix[indices[0][tt],indices[1][tt]]>P_th: 
-                                   
-                                             
-                        
-                        def constraint_fun(u_R):
-                            u_R_reshaped = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-                            x_pr_t = Abar @ x_R0 + Bbar @ u_R_reshaped
-                            # Cons=np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[NoI_R * (t+1)-NoI_R:NoI_R * (t+1) - 1]) - Safe_Distance
-
-                            Cons=np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[NoI_R * t:NoI_R * (t + 1) ]) - Safe_Distance
-                            return Cons
-                        constraints.append({'type': 'ineq', 'fun': constraint_fun})
+    theta_7=15
+    # Get indices of matching element  
+    # matches = np.array([[np.array_equal(Nc[iiii, jjjj], x_R0) for jjjj in range(Nc.shape[0])] for iiii in range(Nc.shape[0])])
+    # indice = np.array(np.argwhere(matches)[0])
 
 
-                        # P_Col.append(np.array(0.0))
-                        P_Coll[i]=np.array(0.0)
+    for t in range(P_xH.shape[0]):
+    # Get the current 2D slice
+        matrix = P_xH[t, :, :]
 
-                    # elif np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])<=1. and matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
-                    elif matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
+    # Check if any value exceeds the threshold
+        if np.any(matrix > 0.0):
+        # Find indices where the condition is true
+            indices = np.where(matrix > 0.0)
+
+            
+            
+            
+    
+        # Use the first pair of indices for demonstration purposes
+            # m, b = indices[0][0], indices[1][0]
+            
+            indices=np.array(indices)
+            for tt in range(indices.shape[1]):# Check the constraint on x_pr
+
+                # if np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])>1. and matrix[indices[0][tt],indices[1][tt]]>P_th:
+                if matrix[indices[0][tt],indices[1][tt]]>P_th: 
+                                                  
+                    cs=np.array([[2],[2]])
+                    gama= gama+theta_7  * (cp.norm(Nc[indices[0,tt],indices[1,tt]] -x_pr[NoI_R * t:NoI_R * (t + 1)]-cs))
+
+                    P_Col.append(np.array(0.0))
+
+
+                # elif np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])<=1. and matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
+                elif matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
                 # Find the maximum value smaller than the threshold
-                    
-                        # P_Col.append(P_xH[0, indices[0][tt]])
-                        dvd=P_xH[0, indices[0][tt],indices[1][tt]]
-                        P_Coll[i]=dvd
+                    # dvd=P_xH[0, indice[0],indice[1]]
+                    dvd=P_xH[0, indices[0][tt],indices[1][tt]]
+
+                    P_Col.append(dvd)
+                
                 #print(f"Max value smaller than threshold: {P_Coll}")
-                    else:
-                        # P_Col.append(np.array(0.0))
-                        P_Coll[i]=np.array(0.0)
-        
-        return constraints
+                else:
+                    P_Col.append(np.array(0.0))
+
 
     # Initial guess for the optimization variables
-    if i>=1:
- 
-        # initial_u_R=u_app_R[:, i-1]
-        initial_u_R=np.tile(u_app_R[:, i-1], (Prediction_Horizon, 1))
+    if np.linalg.norm(x_R[:, i] - x_H[:, i])<=2.5:
+        QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R +gama
+    objective = cp.Minimize(QR_g)
+    prob = cp.Problem(objective, constraints)
+    prob.solve(solver=cp.SCS)
 
-    # Setup constraints for `minimize`
-    constraints = [{'type': 'ineq', 'fun': constraint1},
-                   {'type': 'ineq', 'fun': constraint2}]
-    constraints.extend(custom_constraints(initial_u_R))
-
-    # Perform the optimization
-    result = minimize(objective, initial_u_R.flatten(), constraints=constraints, method='SLSQP')
-
-    # Get the optimized values
-    optimized_u_R = result.x.reshape((NoI_R * Prediction_Horizon, 1))
+    # Get the optimized u_R values
+    optimized_u_R = u_R.value
 
     rounded_u_R = min(u_R_values.flatten(), key=lambda x: np.linalg.norm(np.array([[x]]) - optimized_u_R[:NoI_R]))
+    # rounded_u_R =  optimized_u_R[:NoI_R]
     u_app_R[:, i] = rounded_u_R[:NoI_R, 0]
 
     x_R[:, i+1] = A_R@ x_R[:, i] + B_R @ u_app_R[:, i]
@@ -720,6 +721,8 @@ for i in range(n):
                 beta=1
 
     #-------------------------------------------------------------------------------------------------------------
+    P_Coll[i]=np.max(P_Col)
+    P_Col=[]
     #Plot
     scalar_value = P_t_all[i]
     line1.set_data(time[:i+1], P_t_all[:i+1])
@@ -824,11 +827,15 @@ for i in range(n):
     ax3.autoscale_view()  # Rescale the view limits for the second subplot
     plt.draw()  # Update the figure
     plt.pause(0.1)  # Pause to allow the plot to update
+    if i>=1:
+        print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
 plt.ioff()  # Turn off interactive mode
 plt.show()
-np.save('u_app_H.npy', u_app_H)
-np.save('P_t_all.npy', P_t_all)
-np.save('time.npy', time)
-np.save('P_xH_all.npy', P_xH_all)
-np.save('P_Coll.npy', P_Coll)
-
+np.save('u_app_H_MP.npy', u_app_H)
+np.save('P_t_all_MP.npy', P_t_all)
+np.save('time_MP.npy', time)
+np.save('P_xH_all_MP.npy', P_xH_all)
+np.save('P_Coll_MP.npy', P_Coll)
+np.save('x_H_MP.npy', x_H)
+np.save('x_R_MP.npy', x_R)
+np.save('u_app_R_MP.npy', u_app_R)
