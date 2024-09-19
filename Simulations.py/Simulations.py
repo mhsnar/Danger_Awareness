@@ -30,7 +30,7 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 5
+Prediction_Horizon = 1
 deltaT=0.5
 
 
@@ -762,7 +762,7 @@ for i in range(n):
     # plt.pause(0.1)  # Pause to allow the plot to update
     # if i>=1:
     #     print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
-plt.ioff()  # Turn off interactive mode
+# #plt.ioff()  # Turn off interactive mode
 plt.show()
 
 np.save('u_app_H.npy', u_app_H)
@@ -1585,7 +1585,7 @@ for i in range(n):
     # plt.pause(0.1)  # Pause to allow the plot to update
     # if i>=1:
     #     print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
-plt.ioff()  # Turn off interactive mode
+#plt.ioff()  # Turn off interactive mode
 plt.show()
 np.save('u_app_H_P.npy', u_app_H)
 np.save('P_t_all_P.npy', P_t_all)
@@ -2428,7 +2428,7 @@ for i in range(n):
     # plt.pause(0.1)  # Pause to allow the plot to update
     # if i>=1:
     #     print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
-plt.ioff()  # Turn off interactive mode
+#plt.ioff()  # Turn off interactive mode
 plt.show()
 np.save('u_app_H_MP.npy', u_app_H)
 np.save('P_t_all_MP.npy', P_t_all)
