@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import matplotlib.colors as mcolors
@@ -9,8 +9,8 @@ datasets = {
         'u_app_H': np.load('u_app_H.npy'),
         'P_t_all': np.load('P_t_all.npy'),
         'time': np.load('time.npy'),
-        'P_xH': np.load('P_xH.npy'),
-        'P': np.load('P_xH.npy'),
+        'P_xH_all': np.load('P_xH_all.npy'),  # Changed to P_xH_all
+        'P': np.load('P_xH_all.npy'),  # Changed to P_xH_all
         'P_Coll': np.load('P_Coll.npy'),
         'x_H': np.load('x_H.npy'),
         'x_R': np.load('x_R.npy'),
@@ -20,8 +20,8 @@ datasets = {
         'u_app_H': np.load('u_app_H_P.npy'),
         'P_t_all': np.load('P_t_all_P.npy'),
         'time': np.load('time_P.npy'),
-        'P_xH': np.load('P_xH_P.npy'),
-        'P': np.load('P_xH_P.npy'),
+        'P_xH_all': np.load('P_xH_all_P.npy'),  # Changed to P_xH_all
+        'P': np.load('P_xH_all_P.npy'),  # Changed to P_xH_all
         'x_H': np.load('x_H_P.npy'),
         'x_R': np.load('x_R_P.npy'),
         'u_app_R': np.load('u_app_R_P.npy')
@@ -30,9 +30,8 @@ datasets = {
         'u_app_H': np.load('u_app_H_MP.npy'),
         'P_t_all': np.load('P_t_all_MP.npy'),
         'time': np.load('time_MP.npy'),
-        'P_xH': np.load('P_xH_MP.npy'),
-        'P': np.load('P_xH_MP.npy'),
-
+        'P_xH_all': np.load('P_xH_all_MP.npy'),  # Changed to P_xH_all
+        'P': np.load('P_xH_all_MP.npy'),  # Changed to P_xH_all
         'x_H': np.load('x_H_MP.npy'),
         'x_R': np.load('x_R_MP.npy'),
         'u_app_R': np.load('u_app_R_MP.npy')
@@ -42,7 +41,7 @@ datasets = {
 deltaT = 0.5
 n = 20
 P_th = 0.1
-i = 2
+i = 10  # This controls which sample to select from P_xH_all
 
 fig = plt.figure(figsize=(18, 10))  # Adjusted figure size
 
@@ -73,22 +72,23 @@ for idx, (title, data) in enumerate(datasets.items()):
     ax0.set_ylim(-10, 10)
     ax0.set_xlabel('X')
     ax0.set_ylabel('Y')
-    # ax0.set_title(f'{title} - Moving Dots and Trajectories', pad=20)
     ax0.grid(True)
     
     # Second column: Probability Distributions Plot
     ax1 = fig.add_subplot(gs[idx, 1])
-    combined_P = np.mean(data['P'], axis=0)  # Average over prediction horizon
-    image = ax1.imshow(combined_P, extent=[-5.5, 5.5, -5.5, 5.5], origin='lower', interpolation='nearest')
+    
+    # Plot the ith sample of P_xH_all
+    P_sample = np.mean(data['P_xH_all'][i], axis=0)  # Average across the first dimension
+
+
+    image = ax1.imshow(P_sample, extent=[-5.5, 5.5, -5.5, 5.5], origin='lower', interpolation='nearest')
 
     ax1.set_xlabel('$N_c$')
     ax1.set_ylabel('$N_c$')
-    # ax1.set_title(f'{title} - Probability Distribution', pad=20)
     ax1.grid(True)
     ax1.minorticks_on()
     ax1.grid(which='minor', linestyle=':', linewidth=0.5)
-    plt.colorbar(image, ax=ax1, orientation='vertical', fraction=0.02, pad=0.04)
-
+    plt.colorbar(image, ax=ax1, orientation='vertical', fraction=0.9, pad=0.04)
 
 # Final plot
 plt.tight_layout()
