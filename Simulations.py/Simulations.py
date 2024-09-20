@@ -167,6 +167,7 @@ theta_4 = np.array([8.0]).reshape(-1,1)
 theta_5 = np.array([300]).reshape(-1,1) 
 theta_5 = np.array([100]).reshape(-1,1) 
 theta_6 = np.array([.06]).reshape(-1,1) 
+theta_7=6
 
 x_H = np.array([[-5.],[0.0]])*np.ones((NoS_H,n+1))
 x_R = np.array([[0.],[-10.0]])*np.ones((NoS_R,n+1))  
@@ -393,7 +394,7 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
         epsilon = np.random.normal(mean, std_deviation, num_samples)
         hat_x_R=x_pr[j+1]+epsilon  
 
-    np.save('P.npy', P)
+
     return P
 
 #------------------------------------------------------------------------------------------
@@ -539,8 +540,6 @@ for i in range(n):
     if i==0:
         u_H=np.array([[0.],[0.]])
         P_xH=Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H)
-        # np.save('P_xH.npy',P_xH)
-        # P_xH=np.load('P_xH.npy')
         P_u_H=Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
     else:
         P_xH=Probability_distribution_of_human_s_states(u_app_H[:, i-1],u_app_Robot,w_H,gamma,beta,betas,P_t,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H)
@@ -584,7 +583,7 @@ for i in range(n):
 
     gama=0.0
 
-    theta_7=8
+    
 
 
     for t in range(P_xH.shape[0]):
@@ -605,7 +604,7 @@ for i in range(n):
                 # if np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])>1. and matrix[indices[0][tt],indices[1][tt]]>P_th:
                 if matrix[indices[0][tt],indices[1][tt]]>P_th: 
                                                   
-                    cs=np.array([[2],[2]])
+                    cs=np.array([[2.5],[2.5]])
                     gama= gama+theta_7  * (cp.norm(Nc[indices[0,tt],indices[1,tt]] -x_pr[NoI_R * t:NoI_R * (t + 1)]-cs))
 
                     P_Col.append(np.array(0.0))
@@ -624,7 +623,7 @@ for i in range(n):
 
 
     # Initial guess for the optimization variables
-    if np.linalg.norm(x_R[:, i] - x_H[:, i])<=2.5:
+    if np.linalg.norm(x_R[:, i] - x_H[:, i])<=2.5   :
         QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R +gama
     objective = cp.Minimize(QR_g)
     prob = cp.Problem(objective, constraints)
@@ -759,7 +758,7 @@ for i in range(n):
     ax3.relim()  # Recalculate limits for the second subplot
     ax3.autoscale_view()  # Rescale the view limits for the second subplot
     plt.draw()  # Update the figure
-    # plt.pause(0.1)  # Pause to allow the plot to update
+    plt.pause(0.1)  # Pause to allow the plot to update
     # if i>=1:
     #     print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
 # #plt.ioff()  # Turn off interactive mode
@@ -809,7 +808,7 @@ from matplotlib.patches import FancyBboxPatch
 # Robot Model
 n = 20
 Prediction_Horizon = 5
-Prediction_Horizon_H=5
+Prediction_Horizon_H=Prediction_Horizon
 deltaT=0.5
 
 Signal="off" # Signal could be "on" or "off"
@@ -973,6 +972,7 @@ theta_4 = np.array([8.0]).reshape(-1,1)
 theta_5 = np.array([300]).reshape(-1,1) 
 theta_5 = np.array([100]).reshape(-1,1) 
 theta_6 = np.array([.06]).reshape(-1,1) 
+theta_7=6
 
 x_H = np.array([[-5.],[0.0]])*np.ones((NoS_H,n+1))
 x_R = np.array([[0.],[-10.0]])*np.ones((NoS_R,n+1))  
@@ -1213,7 +1213,7 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
         epsilon = np.random.normal(mean, std_deviation, num_samples)
         hat_x_R=x_pr[j+1]+epsilon  
 
-    np.save('P.npy', P)
+
     return P
 
 #------------------------------------------------------------------------------------------
@@ -1365,8 +1365,7 @@ for i in range(n):
     if i==0:
         
         P_xH=Probability_distribution_of_human_s_states(initial_u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H)
-        # np.save('P_xH.npy',P_xH)
-        # P_xH=np.load('P_xH.npy')
+
         P_u_H=Human_Action_Prediction(initial_u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
     else:
         P_xH=Probability_distribution_of_human_s_states(u_app_H[:, i-1],u_app_Robot,w_H,gamma,beta,betas,P_t,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H)
@@ -1409,7 +1408,7 @@ for i in range(n):
 
     gama=0.0
 
-    theta_7=8
+ 
 
 
     for t in range(P_xH.shape[0]):
@@ -1430,7 +1429,7 @@ for i in range(n):
                 # if np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])>1. and matrix[indices[0][tt],indices[1][tt]]>P_th:
                 if matrix[indices[0][tt],indices[1][tt]]>P_th: 
                                                   
-                    cs=np.array([[2],[2]])
+                    cs=np.array([[2.5],[2.5]])
                     gama= gama+theta_7  * (cp.norm(Nc[indices[0,tt],indices[1,tt]] -x_pr[NoI_R * t:NoI_R * (t + 1)]-cs))
 
                     P_Col.append(np.array(0.0))
@@ -1449,7 +1448,7 @@ for i in range(n):
 
 
     # Initial guess for the optimization variables
-    if np.linalg.norm(x_R[:, i] - x_H[:, i])<=2.5:
+    if np.linalg.norm(x_R[:, i] - x_H[:, i])<=2.5  :
         QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R +gama
     objective = cp.Minimize(QR_g)
     prob = cp.Problem(objective, constraints)
@@ -1582,7 +1581,7 @@ for i in range(n):
     ax3.relim()  # Recalculate limits for the second subplot
     ax3.autoscale_view()  # Rescale the view limits for the second subplot
     plt.draw()  # Update the figure
-    # plt.pause(0.1)  # Pause to allow the plot to update
+    plt.pause(0.1)  # Pause to allow the plot to update
     # if i>=1:
     #     print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
 #plt.ioff()  # Turn off interactive mode
@@ -1630,7 +1629,7 @@ from matplotlib.patches import FancyBboxPatch
 # Robot Model
 n = 20
 Prediction_Horizon = 5
-Prediction_Horizon_H=5
+Prediction_Horizon_H=Prediction_Horizon
 deltaT=0.5
 
 Signal="off" # Signal could be "on" or "off"
@@ -1802,6 +1801,7 @@ theta_4 = np.array([8.0]).reshape(-1,1)
 theta_5 = np.array([300]).reshape(-1,1) 
 theta_5 = np.array([100]).reshape(-1,1) 
 theta_6 = np.array([.06]).reshape(-1,1) 
+theta_7=6
 
 x_H = np.array([[-5],[0.0]])*np.ones((NoS_H,n+1))
 x_R = np.array([[0.],[-10.0]])*np.ones((NoS_R,n+1))  
@@ -2045,7 +2045,7 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
         epsilon = np.random.normal(mean, std_deviation, num_samples)
         hat_x_R=x_pr[j+1]+epsilon  
 
-    np.save('P.npy', P)
+
     return P
 
 #------------------------------------------------------------------------------------------
@@ -2197,8 +2197,6 @@ for i in range(n):
     if i==0:
         
         P_xH=Probability_distribution_of_human_s_states(initial_u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,g_H_pr,u_H_value,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,hat_x_R_pr,Nc,Abar,Bbar,A_H,B_H,NoI_H,initial_u_H [:NoI_H],Abar_H,Bbar_H,eta_1, eta_2)
-        # np.save('P_xH_MP.npy',P_xH)
-        # P_xH=np.load('P_xH_MP.npy')
         P_u_H=Human_Action_Prediction(NoI_H, u_H_value,u_H_values, x_H0, g_H_pr, theta_3, theta_4, theta_5, theta_6, hat_x_R_pr, eta_1, eta_2, betas, initial_u_H,Prediction_Horizon_H,Abar_H,Bbar_H,U_H_constraints)
                                     
     else:
@@ -2244,7 +2242,7 @@ for i in range(n):
 
     gama=0.0
 
-    theta_7=15
+    
     # Get indices of matching element  
     # matches = np.array([[np.array_equal(Nc[iiii, jjjj], x_R0) for jjjj in range(Nc.shape[0])] for iiii in range(Nc.shape[0])])
     # indice = np.array(np.argwhere(matches)[0])
@@ -2272,7 +2270,7 @@ for i in range(n):
                 # if np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])>1. and matrix[indices[0][tt],indices[1][tt]]>P_th:
                 if matrix[indices[0][tt],indices[1][tt]]>P_th: 
                                                   
-                    cs=np.array([[2],[2]])
+                    cs=np.array([[2.5],[2.5]])
                     gama= gama+theta_7  * (cp.norm(Nc[indices[0,tt],indices[1,tt]] -x_pr[NoI_R * t:NoI_R * (t + 1)]-cs))
 
                     P_Col.append(np.array(0.0))
@@ -2292,7 +2290,7 @@ for i in range(n):
 
 
     # Initial guess for the optimization variables
-    if np.linalg.norm(x_R[:, i] - x_H[:, i])<=2.5:
+    if np.linalg.norm(x_R[:, i] - x_H[:, i])<=2.5  :
         QR_g = theta_1 * norm_x_R_g_R + theta_2 * norm_u_R +gama
     objective = cp.Minimize(QR_g)
     prob = cp.Problem(objective, constraints)
@@ -2301,8 +2299,8 @@ for i in range(n):
     # Get the optimized u_R values
     optimized_u_R = u_R.value
 
-    rounded_u_R = min(u_R_values.flatten(), key=lambda x: np.linalg.norm(np.array([[x]]) - optimized_u_R[:NoI_R]))
-    # rounded_u_R =  optimized_u_R[:NoI_R]
+    # rounded_u_R = min(u_R_values.flatten(), key=lambda x: np.linalg.norm(np.array([[x]]) - optimized_u_R[:NoI_R]))
+    rounded_u_R =  optimized_u_R[:NoI_R]
     u_app_R[:, i] = rounded_u_R[:NoI_R, 0]
 
     x_R[:, i+1] = A_R@ x_R[:, i] + B_R @ u_app_R[:, i]
@@ -2425,7 +2423,7 @@ for i in range(n):
     ax3.relim()  # Recalculate limits for the second subplot
     ax3.autoscale_view()  # Rescale the view limits for the second subplot
     plt.draw()  # Update the figure
-    # plt.pause(0.1)  # Pause to allow the plot to update
+    plt.pause(0.1)  # Pause to allow the plot to update
     # if i>=1:
     #     print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
 #plt.ioff()  # Turn off interactive mode
