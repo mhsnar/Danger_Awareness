@@ -32,6 +32,11 @@ from matplotlib.patches import FancyBboxPatch
 n = 20
 Prediction_Horizon = 1
 deltaT=0.5
+Safe_Distance=2
+
+Signal="off" # Signal could be "on" or "off"
+Human="Concerned"  # Human could be "Concerned" or "Unconcerned"
+
 
 A_R =  np.array([[1.0, 0.],[0.,1.]])
 B_R = np.array([[deltaT,0.0],[0.0,deltaT]])
@@ -95,9 +100,6 @@ betas=np.array([0,
                 1])
 
 
-Signal="on" # Signal could be "on" or "off"
-Human="Unconcerned"  # Human could be "Concerned" or "Unconcerned"
-
 
 
 
@@ -158,13 +160,14 @@ T_R = np.array([5.0]).reshape(-1,1)
 gamma = 1
 eta_1 = 1.0
 eta_2 = 1.
-theta_1 = np.array([1.0]).reshape(-1,1)   
-theta_2 = np.array([0.5]).reshape(-1,1)   
+theta_1 = np.array([4]).reshape(-1,1)   
+theta_2 = np.array([.5]).reshape(-1,1)   
 theta_3 = np.array([2.5]).reshape(-1,1)   
 theta_4 = np.array([8.0]).reshape(-1,1)   
 theta_5 = np.array([300]).reshape(-1,1) 
 theta_5 = np.array([100]).reshape(-1,1) 
 theta_6 = np.array([.06]).reshape(-1,1) 
+theta_7=9
 
 x_H = np.array([[-5.],[0.0]])*np.ones((NoS_H,n+1))
 x_R = np.array([[0.],[-10.0]])*np.ones((NoS_R,n+1))  
@@ -391,7 +394,7 @@ def Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,be
         epsilon = np.random.normal(mean, std_deviation, num_samples)
         hat_x_R=x_pr[j+1]+epsilon  
 
-    np.save('P.npy', P)
+
     return P
 
 #------------------------------------------------------------------------------------------
@@ -516,6 +519,7 @@ flag=0
 P_Col=[]
 P_Coll=[]
 P_t_app=[]
+optimized_u_R=np.zeros((NoI_R * Prediction_Horizon, n))
 u_app_H = np.zeros((NoI_H, n))
 u_app_R = np.zeros((NoI_R, n))
 P_xH_all=np.zeros((n,Prediction_Horizon,Nc.shape[0],Nc.shape[1]))
@@ -537,8 +541,6 @@ for i in range(n):
     if i==0:
         u_H=np.array([[0.],[0.]])
         P_xH=Probability_distribution_of_human_s_states(u_H,u_app_Robot,w_H,gamma,beta,betas,P_t,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H)
-        # np.save('P_xH.npy',P_xH)
-        # P_xH=np.load('P_xH.npy')
         P_u_H=Human_Action_Prediction(u_H,u_H_values,w_H,gamma,betas,x_H0,hat_x_R,g_H,theta_3,theta_4,theta_5,theta_6)
     else:
         P_xH=Probability_distribution_of_human_s_states(u_app_H[:, i-1],u_app_Robot,w_H,gamma,beta,betas,P_t,u_H_values,Prediction_Horizon, x_H0,g_H,theta_3,theta_4,theta_5,theta_6,hat_x_R,Nc,Abar,Bbar,A_H,B_H)
@@ -555,7 +557,7 @@ for i in range(n):
     u_app_H[:, i]=u_H.flatten()
     x_H[:, i+1] = A_H @ x_H[:, i] + B_H @ u_app_H[:, i]
     
-    # Robot’s goal objective function
+   # Robot’s goal objective function
     def objective(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
         x_pr = Abar @ x_R0 + Bbar @ u_R
@@ -567,7 +569,7 @@ for i in range(n):
     # Define constraints
     def constraint1(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        return np.min(u_R)  # u_R >= 0
+        return np.min(u_R) +2. # u_R >= 0
 
     def constraint2(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
@@ -601,28 +603,37 @@ for i in range(n):
                         def constraint_fun(u_R):
                             u_R_reshaped = u_R.reshape((NoI_R * Prediction_Horizon, 1))
                             x_pr_t = Abar @ x_R0 + Bbar @ u_R_reshaped
-                            return np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[NoI_R * t:NoI_R * (t + 1)]) - 1.5
+                            # Cons=np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[NoI_R * (t+1)-NoI_R:NoI_R * (t+1) - 1]) - Safe_Distance
+
+                            Cons=np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[NoI_R * t:NoI_R * (t + 1) ]) - Safe_Distance
+                            return Cons
                         constraints.append({'type': 'ineq', 'fun': constraint_fun})
 
 
                         # P_Col.append(np.array(0.0))
-                        P_Coll[i]=np.array(0.0)
+                        P_Col.append(np.array(0.0))
 
                     # elif np.linalg.norm(Nc[indices[0,tt],indices[1,tt]]-x_R[:,i])<=1. and matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
                     elif matrix[indices[0][tt],indices[1][tt]]<=P_th and t==0 :
                 # Find the maximum value smaller than the threshold
                         dvd=P_xH[0, indices[0][tt],indices[1][tt]]
-                        P_Coll[i]=dvd
-                   
+
+                        P_Col.append(dvd)
+                
                 #print(f"Max value smaller than threshold: {P_Coll}")
                     else:
-                        # P_Col.append(np.array(0.0))
-                        P_Coll[i]=np.array(0.0)
+                       P_Col.append(np.array(0.0))
         
         return constraints
 
     # Initial guess for the optimization variables
-    initial_u_R = 2*np.ones(NoI_R * Prediction_Horizon)
+    if i>=1:
+ 
+        # initial_u_R=u_app_R[:, i-1]
+        # initial_u_R=np.tile(u_app_R[:, i-1], (Prediction_Horizon, 1))
+        initial_u_R=np.vstack([optimized_u_R[NoI_R:, i-1].reshape(-1, 1), optimized_u_R[-NoI_R:, i-1].reshape(-1, 1)])
+    else:
+        initial_u_R=np.tile(np.array([[0],[2]]), (Prediction_Horizon, 1))
 
     # Setup constraints for `minimize`
     constraints = [{'type': 'ineq', 'fun': constraint1},
@@ -630,16 +641,20 @@ for i in range(n):
     constraints.extend(custom_constraints(initial_u_R))
 
     # Perform the optimization
-    result = minimize(objective, initial_u_R, constraints=constraints, method='SLSQP')
+    result = minimize(objective, initial_u_R.flatten(), constraints=constraints, method='SLSQP')
 
     # Get the optimized values
-    optimized_u_R = result.x.reshape((NoI_R * Prediction_Horizon, 1))
+    print(result.fun)
+    optimized_u_R[:,i] = result.x
 
-    rounded_u_R = min(u_R_values.flatten(), key=lambda x: np.linalg.norm(np.array([[x]]) - optimized_u_R[:NoI_R]))
-    u_app_R[:, i] = rounded_u_R[:NoI_R, 0]
+    # rounded_u_R = min(u_R_values.flatten(), key=lambda x: np.linalg.norm(np.array([[x]]) - optimized_u_R[:NoI_R]))
+    rounded_u_R=optimized_u_R[:,i] [:NoI_R]
+    u_app_R[:, i] = rounded_u_R[:NoI_R]
 
     x_R[:, i+1] = A_R@ x_R[:, i] + B_R @ u_app_R[:, i]
+    
 
+    
     # print(u_app_R[:, i],u_app_H[:, i])
     P_t=Robot_s_Belief_About_HDA(u_H,u_H_values ,betas,P_t,P_u_H)               
     P_t_all[i]=P_t[1]
@@ -653,6 +668,8 @@ for i in range(n):
                 beta=1
 
     #-------------------------------------------------------------------------------------------------------------
+    P_Coll[i]=np.max(P_Col)
+    P_Col=[]
     #Plot
     scalar_value = P_t_all[i]
     line1.set_data(time[:i+1], P_t_all[:i+1])
@@ -757,11 +774,18 @@ for i in range(n):
     ax3.autoscale_view()  # Rescale the view limits for the second subplot
     plt.draw()  # Update the figure
     plt.pause(0.1)  # Pause to allow the plot to update
-plt.ioff()  # Turn off interactive mode
+    if i>=1:
+        print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
+# #plt.ioff()  # Turn off interactive mode
 plt.show()
+
 np.save('u_app_H.npy', u_app_H)
 np.save('P_t_all.npy', P_t_all)
 np.save('time.npy', time)
 np.save('P_xH_all.npy', P_xH_all)
 np.save('P_Coll.npy', P_Coll)
+np.save('x_H.npy', x_H)
+np.save('x_R.npy', x_R)
+np.save('u_app_R.npy', u_app_R)
+
 

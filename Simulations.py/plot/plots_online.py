@@ -71,7 +71,7 @@ for idx, (title, data) in enumerate(datasets.items()):
     # Third row (current column) becomes second row:
     P_sample = np.mean(data['P_xH_all'][0], axis=0)
     image = axs[1, idx].imshow(P_sample, extent=[-5.5, 5.5, -5.5, 5.5], origin='lower', interpolation='nearest', cmap='viridis')
-    fig.colorbar(image, ax=axs[1, idx], orientation='vertical', fraction=0.08, pad=0.04)
+    fig.colorbar(image, ax=axs[1, idx], orientation='vertical', fraction=0.02, pad=0.02)
     axs[1, idx].set_xlabel('$N_c$')
     axs[1, idx].set_ylabel('$N_c$')
     axs[1, idx].grid(True)
