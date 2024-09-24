@@ -30,7 +30,7 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 5
+Prediction_Horizon = 2
 deltaT=0.5
 Safe_Distance=2
 
@@ -822,7 +822,7 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 5
+Prediction_Horizon = 2
 Prediction_Horizon_H=Prediction_Horizon
 Signal="off" # Signal could be "on" or "off"
 Human="Concerned"  # Human could be "Concerned" or "Unconcerned"
@@ -1658,7 +1658,7 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 5
+Prediction_Horizon = 2
 Prediction_Horizon_H=Prediction_Horizon
 
 Safe_Distance=2
