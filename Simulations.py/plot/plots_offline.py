@@ -330,6 +330,8 @@ gs = fig.add_gridspec(2, 4, width_ratios=[1, 1, 3, 1], height_ratios=[1, 1])
 
 # Second column: Live Plot of Probability Distributions
 ax3 = fig.add_subplot(gs[:, 2])
+
+
 image = ax3.imshow(P_normalized[0], extent=[-5.5, 5.5, -5.5, 5.5], origin='lower',
                    cmap=cm, interpolation='nearest')
 ax3.set_xlabel('$N_c$')
@@ -398,6 +400,7 @@ for i in range(n):
     combined_P = np.mean(P_normalized, axis=0)  # Average over all prediction horizons
     # image.set_data(P_normalized[0,:,:])
     image.set_data(combined_P)
+    
     # Update the black square representing the actual position on ax3
     for artist in ax3.patches:
         artist.remove()  # Remove the previous square
@@ -484,7 +487,7 @@ for i in range(n):
     ax3.relim()  # Recalculate limits for the second subplot
     ax3.autoscale_view()  # Rescale the view limits for the second subplot
     plt.draw()  # Update the figure
-    plt.pause(0.5)  # Pause to allow the plot to update
+    plt.pause(0.53)  # Pause to allow the plot to update
     if i>=1:
         print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
 plt.ioff()  # Turn off interactive mode

@@ -97,9 +97,11 @@ def update(frame):
         axs[0, idx].lines[-1].set_data([data['x_R'][0, frame]], [data['x_R'][1, frame]])
 
         comfort_circles[idx].center = (data['x_H'][0, frame], data['x_H'][1, frame])
-
-        P_sample = np.mean(data['P_xH_all'][frame], axis=0)
-        images[idx].set_data(P_sample)
+        axs[1, idx].cla()
+        
+        # Plot each P_xH_all[frame][j]
+        for j in range(data['P_xH_all'][frame].shape[0]):
+            axs[1, idx].imshow(data['P_xH_all'][frame][j])
 
         robot_dot_x = data['x_R'][0, frame]
         robot_dot_y = data['x_R'][1, frame]
