@@ -30,8 +30,8 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 1
-Prediction_Horizon_H=1
+Prediction_Horizon = 2
+Prediction_Horizon_H=2
 
 Safe_Distance=2
 deltaT=0.5
@@ -206,8 +206,8 @@ theta_5 = np.array([300]).reshape(-1,1)
 theta_5 = np.array([100]).reshape(-1,1) 
 theta_6 = np.array([.06]).reshape(-1,1) 
 
-x_H = np.array([[-5],[0.0]])*np.ones((NoS_H,n+1))
-x_R = np.array([[0.],[-10.0]])*np.ones((NoS_R,n+1))  
+x_H = np.array([[-5.0],[0.0]])*np.ones((NoS_H,n+1))
+x_R = np.array([[0.],[-10.]])*np.ones((NoS_R,n+1))  
 
 U_H_constraint=np.array([[1], [1]]) 
 initial_u_H=np.array([[0.],[0.]])
@@ -581,6 +581,7 @@ P_t_all = np.zeros((n, 1))
 P_Coll = np.zeros((n, 1))
 
 for i in range(n):
+    constraints=[]
     x_H0=x_H[:, i][:, np.newaxis]  
     x_R0=x_R[:, i][:, np.newaxis]  
     

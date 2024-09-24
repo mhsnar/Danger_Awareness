@@ -779,13 +779,13 @@ for i in range(n):
 # #plt.ioff()  # Turn off interactive mode
 plt.show()
 
-np.save('u_app_H.npy', u_app_H)
-np.save('P_t_all.npy', P_t_all)
-np.save('time.npy', time)
-np.save('P_xH_all.npy', P_xH_all)
-np.save('P_Coll.npy', P_Coll)
-np.save('x_H.npy', x_H)
-np.save('x_R.npy', x_R)
-np.save('u_app_R.npy', u_app_R)
+# np.save('u_app_H.npy', u_app_H)
+# np.save('P_t_all.npy', P_t_all)
+# np.save('time.npy', time)
+# np.save('P_xH_all.npy', P_xH_all)
+# np.save('P_Coll.npy', P_Coll)
+# np.save('x_H.npy', x_H)
+# np.save('x_R.npy', x_R)
+# np.save('u_app_R.npy', u_app_R)
 
 

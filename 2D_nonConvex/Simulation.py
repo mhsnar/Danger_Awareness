@@ -30,7 +30,7 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 1
+Prediction_Horizon = 5
 deltaT=0.5
 Safe_Distance=2
 
@@ -527,6 +527,7 @@ P_t_all = np.zeros((n, 1))
 P_Coll = np.zeros((n, 1))
 
 for i in range(n):
+    constraints=[]
     x_H0=x_H[:, i][:, np.newaxis]  
     x_R0=x_R[:, i][:, np.newaxis]  
     
@@ -644,7 +645,7 @@ for i in range(n):
     result = minimize(objective, initial_u_R.flatten(), constraints=constraints, method='SLSQP')
 
     # Get the optimized values
-    print(result.fun)
+    # print(result.fun)
     optimized_u_R[:,i] = result.x
 
     # rounded_u_R = min(u_R_values.flatten(), key=lambda x: np.linalg.norm(np.array([[x]]) - optimized_u_R[:NoI_R]))
@@ -773,10 +774,10 @@ for i in range(n):
     ax3.relim()  # Recalculate limits for the second subplot
     ax3.autoscale_view()  # Rescale the view limits for the second subplot
     plt.draw()  # Update the figure
-    plt.pause(0.1)  # Pause to allow the plot to update
-    if i>=1:
-        print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
-# #plt.ioff()  # Turn off interactive mode
+    #plt.pause(0.1)  # Pause to allow the plot to update
+    # if i>=1:
+    #     print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
+# ##plt.ioff() # Turn off interactive mode
 plt.show()
 
 np.save('u_app_H.npy', u_app_H)
@@ -821,8 +822,8 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 1
-Prediction_Horizon_H=1
+Prediction_Horizon = 5
+Prediction_Horizon_H=Prediction_Horizon
 Signal="off" # Signal could be "on" or "off"
 Human="Concerned"  # Human could be "Concerned" or "Unconcerned"
 
@@ -1359,6 +1360,7 @@ P_t_all = np.zeros((n, 1))
 P_Coll = np.zeros((n, 1))
 
 for i in range(n):
+    constraints=[]
     x_H0=x_H[:, i][:, np.newaxis]  
     x_R0=x_R[:, i][:, np.newaxis]  
     
@@ -1610,10 +1612,10 @@ for i in range(n):
     ax3.relim()  # Recalculate limits for the second subplot
     ax3.autoscale_view()  # Rescale the view limits for the second subplot
     plt.draw()  # Update the figure
-    plt.pause(0.1)  # Pause to allow the plot to update
-    if i>=1:
-        print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
-plt.ioff()  # Turn off interactive mode
+    #plt.pause(0.1)  # Pause to allow the plot to update
+    # if i>=1:
+    #     print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
+#plt.ioff() # Turn off interactive mode
 plt.show()
 np.save('u_app_H_P.npy', u_app_H)
 np.save('P_t_all_P.npy', P_t_all)
@@ -1656,8 +1658,8 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 1
-Prediction_Horizon_H=1
+Prediction_Horizon = 5
+Prediction_Horizon_H=Prediction_Horizon
 
 Safe_Distance=2
 deltaT=0.5
@@ -2207,6 +2209,7 @@ P_t_all = np.zeros((n, 1))
 P_Coll = np.zeros((n, 1))
 
 for i in range(n):
+    constraints=[]
     x_H0=x_H[:, i][:, np.newaxis]  
     x_R0=x_R[:, i][:, np.newaxis]  
     
@@ -2336,7 +2339,7 @@ for i in range(n):
     result = minimize(objective, initial_u_R.flatten(), constraints=constraints, method='SLSQP')
 
     # Get the optimized values
-    print(result.fun)
+    # print(result.fun)
     optimized_u_R[:,i] = result.x
 
     # rounded_u_R = min(u_R_values.flatten(), key=lambda x: np.linalg.norm(np.array([[x]]) - optimized_u_R[:NoI_R]))
@@ -2463,10 +2466,10 @@ for i in range(n):
     ax3.relim()  # Recalculate limits for the second subplot
     ax3.autoscale_view()  # Rescale the view limits for the second subplot
     plt.draw()  # Update the figure
-    plt.pause(0.1)  # Pause to allow the plot to update
-    if i>=1:
-        print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
-plt.ioff()  # Turn off interactive mode
+    #plt.pause(0.1)  # Pause to allow the plot to update
+    # if i>=1:
+    #     print(np.linalg.norm(x_R[:, i] - x_H[:, i]) )
+#plt.ioff() # Turn off interactive mode
 plt.show()
 np.save('u_app_H_MP.npy', u_app_H)
 np.save('P_t_all_MP.npy', P_t_all)
