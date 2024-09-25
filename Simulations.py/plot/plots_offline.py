@@ -63,7 +63,7 @@ else:
     exit()
 
 
-
+count = np.sum(P_xH_all[11,:,:,:] > 0)
 #------------------------------------------
 # Robot Model
 n = 20
@@ -247,7 +247,7 @@ theta_6 = np.array([.06]).reshape(-1,1)
 
 U_H_constraint=np.array([[1], [1]]) 
 initial_u_H=np.array([[0.],[0.]])
-initial_u_R=np.array([[2.],[2.]])
+initial_u_R=np.array([[0.],[2.]])
 
 U_H_constraints=np.tile(U_H_constraint, (Prediction_Horizon, 1))
 initial_u_H=np.tile(initial_u_H, (Prediction_Horizon, 1))

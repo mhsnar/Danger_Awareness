@@ -154,7 +154,7 @@ for i in range(u_R_values.shape[0]):
 u_R_values=coordinates_matrix        
 
 
-P_th = np.array([0.1]).reshape(-1,1)  
+P_th = np.array([0]).reshape(-1,1)  
 T_R = np.array([5.0]).reshape(-1,1)  
 
 gamma = 1
@@ -525,14 +525,15 @@ u_app_R = np.zeros((NoI_R, n))
 P_xH_all=np.zeros((n,Prediction_Horizon,Nc.shape[0],Nc.shape[1]))
 P_t_all = np.zeros((n, 1))
 P_Coll = np.zeros((n, 1))
-
+c=0.
 for i in range(n):
+    constraints=[]
     x_H0=x_H[:, i][:, np.newaxis]  
     x_R0=x_R[:, i][:, np.newaxis]  
     
     # Generate zero-mean Gaussian noise
     epsilon = np.random.normal(mean, std_deviation, num_samples)
-    hat_x_R=x_R0+epsilon  
+    hat_x_R=x_R0+epsilon
      
     u_app_Robot=v_R*np.ones((NoI_R * Prediction_Horizon,1))
     if i>=1: 
@@ -556,7 +557,7 @@ for i in range(n):
     # u_H=1.0
     u_app_H[:, i]=u_H.flatten()
     x_H[:, i+1] = A_H @ x_H[:, i] + B_H @ u_app_H[:, i]
-    
+    count = np.sum(P_xH > 0.1)
    # Robot’s goal objective function
     def objective(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
@@ -577,8 +578,8 @@ for i in range(n):
 
     def custom_constraints(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        constraints = []
-
+        
+        c=0
 
         for t in range(P_xH.shape[0]):
         # Get the current 2D slice
@@ -588,7 +589,7 @@ for i in range(n):
             if np.any(matrix > 0.0):
             # Find indices where the condition is true
                 indices = np.where(matrix > 0.0)
-        
+                
             # Use the first pair of indices for demonstration purposes
                 # m, b = indices[0][0], indices[1][0]
                
@@ -604,10 +605,12 @@ for i in range(n):
                             u_R_reshaped = u_R.reshape((NoI_R * Prediction_Horizon, 1))
                             x_pr_t = Abar @ x_R0 + Bbar @ u_R_reshaped
                             # Cons=np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[NoI_R * (t+1)-NoI_R:NoI_R * (t+1) - 1]) - Safe_Distance
-
-                            Cons=np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[NoI_R * t:NoI_R * (t + 1) ]) - Safe_Distance
+                            svsv=Nc[indices[0,tt],indices[1,tt]]
+                            Cons=np.linalg.norm(Nc[indices[0,tt],indices[1,tt]] - x_pr_t[:NoI_R ]) - Safe_Distance 
                             return Cons
                         constraints.append({'type': 'ineq', 'fun': constraint_fun})
+                        c=c+1
+                        # print(c)
 
 
                         # P_Col.append(np.array(0.0))
@@ -624,7 +627,7 @@ for i in range(n):
                     else:
                        P_Col.append(np.array(0.0))
         
-        return constraints
+        return constraints, P_Col
 
     # Initial guess for the optimization variables
     if i>=1:
@@ -638,14 +641,16 @@ for i in range(n):
     # Setup constraints for `minimize`
     constraints = [{'type': 'ineq', 'fun': constraint1},
                    {'type': 'ineq', 'fun': constraint2}]
-    constraints.extend(custom_constraints(initial_u_R))
-
+    constraints, P_Col=custom_constraints(initial_u_R)
+    # constraints.extend(custom_constraints(initial_u_R))
+    # print(constraints)
     # Perform the optimization
     result = minimize(objective, initial_u_R.flatten(), constraints=constraints, method='SLSQP')
 
     # Get the optimized values
-    print(result.fun)
+    # print(result.fun)
     optimized_u_R[:,i] = result.x
+
 
     # rounded_u_R = min(u_R_values.flatten(), key=lambda x: np.linalg.norm(np.array([[x]]) - optimized_u_R[:NoI_R]))
     rounded_u_R=optimized_u_R[:,i] [:NoI_R]
@@ -677,10 +682,12 @@ for i in range(n):
     line2.set_data(time[:i+1], P_Coll[:i+1])
   
     P_normalized = P_xH 
-    P_normalized = np.clip(P_normalized, 0, 1)  # Clip negative values to 0
-    combined_P = np.mean(P_normalized, axis=0)  # Average over all prediction horizons
+    # Clip negative values to 0
+    for j in range(P_xH.shape[0]):
+        image.set_data(P_xH[j])
+    # combined_P = np.mean(P_normalized, axis=0)  # Average over all prediction horizons
     # image.set_data(P_normalized[0,:,:])
-    image.set_data(combined_P)
+    # image.set_data(combined_P)
     # Update the black square representing the actual position on ax3
     for artist in ax3.patches:
         artist.remove()  # Remove the previous square

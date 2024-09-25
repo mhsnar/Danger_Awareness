@@ -154,13 +154,13 @@ for i in range(u_R_values.shape[0]):
 u_R_values=coordinates_matrix        
 
 
-P_th = np.array([0.1]).reshape(-1,1)  
+P_th = np.array([0]).reshape(-1,1)  
 T_R = np.array([5.0]).reshape(-1,1)  
 
 gamma = 1
 eta_1 = 1.0
 eta_2 = 1.
-theta_1 = np.array([4]).reshape(-1,1)   
+theta_1 = np.array([1]).reshape(-1,1)   
 theta_2 = np.array([.5]).reshape(-1,1)   
 theta_3 = np.array([2.5]).reshape(-1,1)   
 theta_4 = np.array([8.0]).reshape(-1,1)   
@@ -578,7 +578,7 @@ for i in range(n):
 
     def custom_constraints(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        constraints = []
+         
 
 
         for t in range(P_xH.shape[0]):
@@ -974,7 +974,7 @@ for i in range(u_R_values.shape[0]):
 u_R_values=coordinates_matrix        
 
 
-P_th = np.array([0.1]).reshape(-1,1)  
+P_th = np.array([0]).reshape(-1,1)  
 T_R = np.array([5.0]).reshape(-1,1)  
 
 gamma = 1
@@ -993,7 +993,7 @@ x_R = np.array([[0.],[-10.0]])*np.ones((NoS_R,n+1))
 
 U_H_constraint=np.array([[1], [1]]) 
 initial_u_H=np.array([[0.],[0.]])
-initial_u_R=np.array([[2.],[2.]])
+initial_u_R=np.array([[0.],[2.]])
 
 U_H_constraints=np.tile(U_H_constraint, (Prediction_Horizon, 1))
 initial_u_H=np.tile(initial_u_H, (Prediction_Horizon, 1))
@@ -1419,7 +1419,7 @@ for i in range(n):
 
     def custom_constraints(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        constraints = []
+         
 
 
         for t in range(P_xH.shape[0]):
@@ -1791,7 +1791,7 @@ Nc=coordinates_matrix
 
 g_H = np.array([[5.],[0.0]])
 g_H_pr = np.tile(g_H, (Prediction_Horizon_H, 1))
-g_R = np.array([[0.],[6.0]]).reshape(-1,1) 
+g_R = np.array([[0.],[10.0]]).reshape(-1,1) 
 g_R_pr = np.tile(g_R, (Prediction_Horizon, 1))
 v_R =2.0
 v_h = .5
@@ -1820,13 +1820,13 @@ for i in range(u_R_values.shape[0]):
 u_R_values=coordinates_matrix        
 
 
-P_th = np.array([0.1]).reshape(-1,1)  
+P_th = np.array([0]).reshape(-1,1)  
 T_R = np.array([5.0]).reshape(-1,1)  
 
 gamma = 1
 eta_1 = 1.0
 eta_2 = 1.
-theta_1 = np.array([4]).reshape(-1,1)   
+theta_1 = np.array([1]).reshape(-1,1)   
 theta_2 = np.array([.5]).reshape(-1,1)   
 theta_3 = np.array([2.5]).reshape(-1,1)   
 theta_4 = np.array([8.0]).reshape(-1,1)   
@@ -1839,7 +1839,7 @@ x_R = np.array([[0.],[-10.0]])*np.ones((NoS_R,n+1))
 
 U_H_constraint=np.array([[1], [1]]) 
 initial_u_H=np.array([[0.],[0.]])
-initial_u_R=np.array([[2.],[2.]])
+initial_u_R=np.array([[0.],[2.]])
 
 U_H_constraints=np.tile(U_H_constraint, (Prediction_Horizon, 1))
 initial_u_H=np.tile(initial_u_H, (Prediction_Horizon, 1))
@@ -2272,7 +2272,7 @@ for i in range(n):
 
     def custom_constraints(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
-        constraints = []
+         
 
 
         for t in range(P_xH.shape[0]):

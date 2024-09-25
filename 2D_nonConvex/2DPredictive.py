@@ -201,7 +201,7 @@ x_R = np.array([[0.],[-10.0]])*np.ones((NoS_R,n+1))
 
 U_H_constraint=np.array([[1], [1]]) 
 initial_u_H=np.array([[0.],[0.]])
-initial_u_R=np.array([[2.],[2.]])
+initial_u_R=np.array([[0.],[2.]])
 
 U_H_constraints=np.tile(U_H_constraint, (Prediction_Horizon, 1))
 initial_u_H=np.tile(initial_u_H, (Prediction_Horizon, 1))
@@ -568,6 +568,7 @@ P_t_all = np.zeros((n, 1))
 P_Coll = np.zeros((n, 1))
 
 for i in range(n):
+    constraints=[]
     x_H0=x_H[:, i][:, np.newaxis]  
     x_R0=x_R[:, i][:, np.newaxis]  
     

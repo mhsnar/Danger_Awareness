@@ -44,6 +44,7 @@ fig, axs = plt.subplots(3, 3, figsize=(10, 10), gridspec_kw={'width_ratios': [1,
 # Placeholders for plots
 images = []
 robot_dots = []
+human_dots = []
 distance_texts = []
 comfort_circles = []
 min_distance_values = []
@@ -70,14 +71,17 @@ for idx, (title, data) in enumerate(datasets.items()):
 
     # Third row (current column) becomes second row:
     P_sample = np.mean(data['P_xH_all'][0], axis=0)
-    image = axs[1, idx].imshow(P_sample, extent=[-5.5, 5.5, -5.5, 5.5], origin='lower', interpolation='nearest', cmap='viridis')
+    
+    image = axs[1, idx].imshow(P_sample, extent=[-5.5, 5.5, -5.5, 5.5], origin='lower', interpolation='nearest', cmap='viridis',alpha=0.9)
     fig.colorbar(image, ax=axs[1, idx], orientation='vertical', fraction=0.02, pad=0.02)
     axs[1, idx].set_xlabel('$N_c$')
     axs[1, idx].set_ylabel('$N_c$')
     axs[1, idx].grid(True)
     
-    robot_dot, = axs[1, idx].plot([], [], 'ro', markersize=8)
+    robot_dot, = axs[1, idx].plot([], [], 'ro', markersize=4)
     robot_dots.append(robot_dot)
+    human_dot, = axs[1, idx].plot([], [], 'gs', markersize=4)
+    human_dots.append(human_dot)
     images.append(image)
 
     # First row (current column) becomes third row:
@@ -97,15 +101,23 @@ def update(frame):
         axs[0, idx].lines[-1].set_data([data['x_R'][0, frame]], [data['x_R'][1, frame]])
 
         comfort_circles[idx].center = (data['x_H'][0, frame], data['x_H'][1, frame])
-        axs[1, idx].cla()
+        # axs[1, idx].cla()
         
         # Plot each P_xH_all[frame][j]
         for j in range(data['P_xH_all'][frame].shape[0]):
-            axs[1, idx].imshow(data['P_xH_all'][frame][j])
+            images[idx].set_data(data['P_xH_all'][frame][j])
+        # P_sample = np.mean(data['P_xH_all'][frame], axis=0)
+        # images[idx].set_data(P_sample)
+        
 
         robot_dot_x = data['x_R'][0, frame]
         robot_dot_y = data['x_R'][1, frame]
         robot_dots[idx].set_data([robot_dot_x], [robot_dot_y])
+
+
+        human_dot_x = data['x_H'][0, frame]
+        human_dot_y = data['x_H'][1, frame]
+        human_dots[idx].set_data([human_dot_x], [human_dot_y])
 
         current_distance = np.linalg.norm(data['x_R'][:, frame] - data['x_H'][:, frame])
         distance_texts[idx].set_text(f"Current: {current_distance:.2f}")
