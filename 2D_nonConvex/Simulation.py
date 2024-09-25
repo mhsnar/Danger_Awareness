@@ -32,7 +32,7 @@ from matplotlib.patches import FancyBboxPatch
 n = 20
 Prediction_Horizon = 2
 deltaT=0.5
-Safe_Distance=2
+Safe_Distance=3.5
 
 Signal="off" # Signal could be "on" or "off"
 Human="Concerned"  # Human could be "Concerned" or "Unconcerned"
@@ -828,7 +828,7 @@ Signal="off" # Signal could be "on" or "off"
 Human="Concerned"  # Human could be "Concerned" or "Unconcerned"
 
 deltaT=0.5
-Safe_Distance=2
+Safe_Distance=3.5
 A_R =  np.array([[1.0, 0.],[0.,1.]])
 B_R = np.array([[deltaT,0.0],[0.0,deltaT]])
 C_R = np.eye(2,2)
@@ -1661,7 +1661,7 @@ n = 20
 Prediction_Horizon = 2
 Prediction_Horizon_H=Prediction_Horizon
 
-Safe_Distance=2
+Safe_Distance=3.5
 deltaT=0.5
 
 Signal="off" # Signal could be "on" or "off"

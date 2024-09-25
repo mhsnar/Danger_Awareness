@@ -15,7 +15,7 @@ Version: 2D
 """
 
 import numpy as np
-import cvxpy as cp
+# import cvxpy as cp
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
@@ -557,7 +557,7 @@ for i in range(n):
     # u_H=1.0
     u_app_H[:, i]=u_H.flatten()
     x_H[:, i+1] = A_H @ x_H[:, i] + B_H @ u_app_H[:, i]
-    count = np.sum(P_xH > 0.1)
+    count = np.sum(P_xH > 0)
    # Robot’s goal objective function
     def objective(u_R):
         u_R = u_R.reshape((NoI_R * Prediction_Horizon, 1))
@@ -642,6 +642,7 @@ for i in range(n):
     constraints = [{'type': 'ineq', 'fun': constraint1},
                    {'type': 'ineq', 'fun': constraint2}]
     constraints, P_Col=custom_constraints(initial_u_R)
+    print(len(constraints)-2-count)
     # constraints.extend(custom_constraints(initial_u_R))
     # print(constraints)
     # Perform the optimization
