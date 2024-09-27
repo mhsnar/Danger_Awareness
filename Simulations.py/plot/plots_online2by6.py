@@ -85,7 +85,7 @@ for idx, (title, data) in enumerate(datasets.items()):
 
         axs[5, idx].set_xlabel('$N_c$')
         axs[row, 0].set_ylabel('$N_c$')
-        axs[row, 1].set_ylabel(r'$PH={}$'.format(row), fontsize=12)
+        axs[row, 1].set_ylabel(r'$N_R={}$'.format(row), fontsize=12)
          # Adjust the label properties to make it horizontal
         axs[row, 1].yaxis.set_label_coords(-.7, 0.5)  # Adjust position (x, y)
         axs[row, 1].yaxis.label.set_rotation(0)  # Set rotation to horizontal
