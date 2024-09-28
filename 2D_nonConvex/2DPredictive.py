@@ -30,8 +30,8 @@ from matplotlib.patches import FancyBboxPatch
 #------------------------------------------
 # Robot Model
 n = 20
-Prediction_Horizon = 1
-Prediction_Horizon_H=1
+Prediction_Horizon = 2
+Prediction_Horizon_H=2
 Signal="off" # Signal could be "on" or "off"
 Human="Concerned"  # Human could be "Concerned" or "Unconcerned"
 

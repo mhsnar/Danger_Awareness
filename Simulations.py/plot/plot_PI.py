@@ -55,7 +55,7 @@ plt.subplot(3, 1, 3)
 plt.plot(prediction_horizon, PI_Robot_i, marker='o', color='blue' )
 plt.plot(prediction_horizon, PI_Robot_j, marker='o', color='purple')
 # plt.title('Robot PI')
-plt.xlabel('$N_R$')
+plt.xlabel('$Prediction Horizon$')
 plt.ylabel('$PI_{Robot}$')
 plt.xticks(prediction_horizon)
 plt.grid(True)
@@ -65,7 +65,7 @@ plt.grid(True)
 plt.tight_layout()
 
 # Save the plot as an EPS file
-plt.savefig('PIs.eps', format='eps')
+plt.savefig('PI.eps', format='eps')
 
 # Show the plot
 plt.show()
