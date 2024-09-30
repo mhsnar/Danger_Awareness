@@ -123,7 +123,7 @@ class RobotMPCTrackingController:
             self.beta = 0
         self.P_t = np.array([.5, .5])
 
-        self.Nc = np.array([-5.0, -4.5, -4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0])
+        self.Nc = np.array([-3.0, -2.7, -2.4, -2.1, -1.8, -1.5, -1.2, -0.9, -0.6, -0.3, 0.0, 0.3, 0.6, 0.9, 1.2, 1.5, 1.8, 2.1, 2.4, 2.7, 3.0])
 
         self.X, self.Y = np.meshgrid(self.Nc, self.Nc)
 
@@ -136,7 +136,7 @@ class RobotMPCTrackingController:
 
         self.g_H = np.array([[-5], [0.0]])
         self.g_H_pr = np.tile(self.g_H, (self.Prediction_Horizon_H, 1))
-        self.g_R = np.array([[10], [0.0]]).reshape(-1, 1)
+        self.g_R = np.array([[5], [0.0]]).reshape(-1, 1)
         self.g_R_pr = np.tile(self.g_R, (self.Prediction_Horizon, 1))
         self.v_R = 0.30
         self.v_h = .3
@@ -314,13 +314,13 @@ class RobotMPCTrackingController:
     def odom_callback(self, msg):
         # Extract robot's position and orientation from odometry
         
-        self.current_x = msg.pose.pose.position.x-12.73439-5.2624
-        print(self.current_x )
-        self.current_y = msg.pose.pose.position.y-4.0576-5.1754
-        print(self.current_y )
+        self.current_x = msg.pose.pose.position.x-10.777
+        #print(self.current_x )
+        self.current_y = msg.pose.pose.position.y-4.4145
+        #  print(self.current_y )
         orientation_q = msg.pose.pose.orientation
-        self.current_yaw = self.quaternion_to_euler(orientation_q)-.0221+.0336
-        print(self.current_yaw)
+        self.current_yaw = self.quaternion_to_euler(orientation_q)+0.03
+        #print(self.current_yaw)
 
         # Calculate the time difference for velocity estimation
         current_time = rospy.Time.now().to_sec()  # Get the current time
@@ -392,12 +392,12 @@ class RobotMPCTrackingController:
                 # Call the MPC-based planner to get the linear velocity
                 vel = self.Human_robot_action_planner(self.human_position, (self.current_x, self.current_y), linear_vel_human)
                 linear_vel = math.sqrt(vel[0]**2 + vel[1]**2)
-                print(vel)
+
                 # Calculate the current angle of the velocity vector
                 theta = math.atan2(vel[1], vel[0])  # Angle in radians
 
                 # Calculate the angular velocity (rate of change of theta over time)
-                angular_velocity = theta
+                angular_velocity = (theta - self.prev_yaw) / dt if dt > 0 else 0
 
                 # Normalize the angular velocity to ensure it is in the range [-pi, pi]
                 angular_vel = (angular_velocity + np.pi) % (2 * np.pi) - np.pi
@@ -407,10 +407,10 @@ class RobotMPCTrackingController:
                 cmd_msg.linear.x = linear_vel  # Use the planned linear velocity
                 cmd_msg.angular.z = angular_vel  # Use the calculated angular velocity
 
-                # self.cmd_vel_pub.publish(cmd_msg)
+                self.cmd_vel_pub.publish(cmd_msg)
 
-                # rospy.loginfo(f"Robot Position: ({self.current_x}, {self.current_y}), Human Position: ({self.human_position[0]}, {self.human_position[1]})")
-                # rospy.loginfo(f"Linear Velocity: {linear_vel}, Angular Velocity: {angular_vel}")
+                rospy.loginfo(f"Robot Position: ({self.current_x}, {self.current_y}), Human Position: ({self.human_position[0]}, {self.human_position[1]})")
+                rospy.loginfo(f"Linear Velocity: {linear_vel}, Angular Velocity: {angular_vel}")
                 self.inc += 1
 
                 
@@ -772,7 +772,7 @@ class RobotMPCTrackingController:
             self.experimental_data[key] = np.array(self.experimental_data[key])
 
         # Save the experimental data to a .npz file
-        np.savez('experiment_datarorst.npz', **self.experimental_data)
+        np.savez('experiment_data.npz', **self.experimental_data)
         rospy.loginfo("Experimental data saved successfully.")
 
     def save_iteration_data(self, linear_vel_human, vel, current_x, current_y, current_x_human, current_y_human):

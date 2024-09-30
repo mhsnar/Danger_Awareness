@@ -134,9 +134,12 @@ class RobotMPCTrackingController:
                 self.coordinates_matrix[i, j] = np.array([[self.X[i, j]], [self.Y[i, j]]])
         self.Nc = self.coordinates_matrix
 
-        self.g_H = np.array([[-5], [0.0]])
+        # self.g_H = np.array([[-5], [0.0]])+np.array([[10.777],[4.4145]])
+        # self.g_H_pr = np.tile(self.g_H, (self.Prediction_Horizon_H, 1))
+        # self.g_R = np.array([[5+10.777], [4.4145]]).reshape(-1, 1)
+        self.g_H = np.array([[-5], [0.0]])+np.array([[10.777],[4.4145]])
         self.g_H_pr = np.tile(self.g_H, (self.Prediction_Horizon_H, 1))
-        self.g_R = np.array([[10], [0.0]]).reshape(-1, 1)
+        self.g_R = np.array([[10+7.01], [0]]).reshape(-1, 1)
         self.g_R_pr = np.tile(self.g_R, (self.Prediction_Horizon, 1))
         self.v_R = 0.30
         self.v_h = .3
@@ -314,12 +317,12 @@ class RobotMPCTrackingController:
     def odom_callback(self, msg):
         # Extract robot's position and orientation from odometry
         
-        self.current_x = msg.pose.pose.position.x-12.73439-5.2624
+        self.current_x = msg.pose.pose.position.x-7.01
         print(self.current_x )
-        self.current_y = msg.pose.pose.position.y-4.0576-5.1754
+        self.current_y = msg.pose.pose.position.y-3.96
         print(self.current_y )
         orientation_q = msg.pose.pose.orientation
-        self.current_yaw = self.quaternion_to_euler(orientation_q)-.0221+.0336
+        self.current_yaw = self.quaternion_to_euler(orientation_q)-0.02
         print(self.current_yaw)
 
         # Calculate the time difference for velocity estimation
@@ -334,8 +337,7 @@ class RobotMPCTrackingController:
 
         # Proceed only if time difference (dt) exceeds the desired sampling time (0.2 seconds)
         if dt >= 0.5:
-            if (self.human_position is not None and 
-                self.prev_x is not None and 
+            if (self.prev_x is not None and 
                 self.prev_y is not None and 
                 self.prev_yaw is not None):
 
@@ -344,15 +346,10 @@ class RobotMPCTrackingController:
                 # self.current_y_human = self.human_position.y*math.cos(self.current_yaw )-self.human_position.y*math.sin(self.current_yaw )+self.current_y
 
                            # Convert human relative position to global position using correct trigonometric transformation
-                self.current_x_human = (self.human_position.x * math.cos(self.current_yaw) - 
-                                        self.human_position.y * math.sin(self.current_yaw) + 
-                                        self.current_x)
+                self.current_x_human = -100
                                         
-                self.current_y_human = (self.human_position.x * math.sin(self.current_yaw) + 
-                                        self.human_position.y * math.cos(self.current_yaw) + 
-                                        self.current_y)
-                print(self.current_x_human)
-                print(self.current_y_human)
+                self.current_y_human = 100
+
                 # Update previous time
                 self.prev_time = current_time
 
@@ -391,14 +388,15 @@ class RobotMPCTrackingController:
 
                 # Call the MPC-based planner to get the linear velocity
                 vel = self.Human_robot_action_planner(self.human_position, (self.current_x, self.current_y), linear_vel_human)
-                linear_vel = math.sqrt(vel[0]**2 + vel[1]**2)
                 print(vel)
+                linear_vel = math.sqrt(vel[0]**2 + vel[1]**2)
+
                 # Calculate the current angle of the velocity vector
                 theta = math.atan2(vel[1], vel[0])  # Angle in radians
 
                 # Calculate the angular velocity (rate of change of theta over time)
-                angular_velocity = theta
-
+                # angular_velocity = (theta - self.prev_yaw) / dt if dt > 0 else 0
+                angular_velocity=theta
                 # Normalize the angular velocity to ensure it is in the range [-pi, pi]
                 angular_vel = (angular_velocity + np.pi) % (2 * np.pi) - np.pi
                 self.save_iteration_data(linear_vel_human, vel, self.current_x, self.current_y, self.current_x_human, self.current_y_human)
@@ -407,10 +405,10 @@ class RobotMPCTrackingController:
                 cmd_msg.linear.x = linear_vel  # Use the planned linear velocity
                 cmd_msg.angular.z = angular_vel  # Use the calculated angular velocity
 
-                # self.cmd_vel_pub.publish(cmd_msg)
+                self.cmd_vel_pub.publish(cmd_msg)
 
-                # rospy.loginfo(f"Robot Position: ({self.current_x}, {self.current_y}), Human Position: ({self.human_position[0]}, {self.human_position[1]})")
-                # rospy.loginfo(f"Linear Velocity: {linear_vel}, Angular Velocity: {angular_vel}")
+                rospy.loginfo(f"Robot Position: ({self.current_x}, {self.current_y}), Human Position: ({self.human_position[0]}, {self.human_position[1]})")
+                rospy.loginfo(f"Linear Velocity: {linear_vel}, Angular Velocity: {angular_vel}")
                 self.inc += 1
 
                 
@@ -450,8 +448,8 @@ class RobotMPCTrackingController:
 
     def Human_robot_action_planner(self, human_position, robot_position,linear_vel_human):
         constraints = []
-        x_human = human_position.x
-        y_human= human_position.y
+        x_human = 100
+        y_human= 100
         x_robot, y_robot = robot_position
 
         self.u_app_H[:,self.inc]=linear_vel_human.flatten()
@@ -772,7 +770,7 @@ class RobotMPCTrackingController:
             self.experimental_data[key] = np.array(self.experimental_data[key])
 
         # Save the experimental data to a .npz file
-        np.savez('experiment_datarorst.npz', **self.experimental_data)
+        np.savez('experiment_data.npz', **self.experimental_data)
         rospy.loginfo("Experimental data saved successfully.")
 
     def save_iteration_data(self, linear_vel_human, vel, current_x, current_y, current_x_human, current_y_human):
