@@ -34,7 +34,7 @@ class RobotMPCTrackingController:
 
         # Robot Model
         self.n = 500
-        self.Prediction_Horizon = 1
+        self.Prediction_Horizon = 5
         self.Prediction_Horizon_H = self.Prediction_Horizon
         self.Signal = "off"  # Signal could be "on" or "off"
         self.Human = "Concerned"  # Human could be "Concerned" or "Unconcerned"
@@ -254,7 +254,7 @@ class RobotMPCTrackingController:
         self.people_sub = rospy.Subscriber('/people_tracked', PersonArray, self.people_callback)
 
         # Set the control loop rate (5 Hz -> 0.2 sec)
-        self.rate = rospy.Rate(5)
+        self.rate = rospy.Rate(2)
 
         self.reset_odometry()
 
@@ -314,12 +314,12 @@ class RobotMPCTrackingController:
     def odom_callback(self, msg):
         # Extract robot's position and orientation from odometry
         
-        self.current_x = msg.pose.pose.position.x-12.73439-5.2624
+        self.current_x = msg.pose.pose.position.x
         print(self.current_x )
-        self.current_y = msg.pose.pose.position.y-4.0576-5.1754
+        self.current_y = msg.pose.pose.position.y
         print(self.current_y )
         orientation_q = msg.pose.pose.orientation
-        self.current_yaw = self.quaternion_to_euler(orientation_q)-.0221+.0336
+        self.current_yaw = self.quaternion_to_euler(orientation_q)
         print(self.current_yaw)
 
         # Calculate the time difference for velocity estimation
@@ -409,7 +409,7 @@ class RobotMPCTrackingController:
 
                 # self.cmd_vel_pub.publish(cmd_msg)
 
-                # rospy.loginfo(f"Robot Position: ({self.current_x}, {self.current_y}), Human Position: ({self.human_position[0]}, {self.human_position[1]})")
+                # rospy.loginfo(f"Robot Position: ({self.current_x}, {self.current_y}), Human Position: ({self.human_position.x}, {self.human_position.y})")
                 # rospy.loginfo(f"Linear Velocity: {linear_vel}, Angular Velocity: {angular_vel}")
                 self.inc += 1
 
@@ -772,7 +772,7 @@ class RobotMPCTrackingController:
             self.experimental_data[key] = np.array(self.experimental_data[key])
 
         # Save the experimental data to a .npz file
-        np.savez('experiment_datarorst.npz', **self.experimental_data)
+        np.savez('xperiment_data1.npz', **self.experimental_data)
         rospy.loginfo("Experimental data saved successfully.")
 
     def save_iteration_data(self, linear_vel_human, vel, current_x, current_y, current_x_human, current_y_human):
