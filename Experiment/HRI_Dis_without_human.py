@@ -29,12 +29,13 @@ class RobotMPCTrackingController:
             'P_Coll': [],
             'x_H': [],
             'x_R': [],
-            'u_app_R': []
+            'u_app_R': [],
+            'tictoc': []
         }
 
         # Robot Model
         self.n = 500
-        self.Prediction_Horizon = 1
+        self.Prediction_Horizon = 5
         self.Prediction_Horizon_H = self.Prediction_Horizon
         self.Signal = "off"  # Signal could be "on" or "off"
         self.Human = "Concerned"  # Human could be "Concerned" or "Unconcerned"
@@ -134,14 +135,11 @@ class RobotMPCTrackingController:
                 self.coordinates_matrix[i, j] = np.array([[self.X[i, j]], [self.Y[i, j]]])
         self.Nc = self.coordinates_matrix
 
-        # self.g_H = np.array([[-5], [0.0]])+np.array([[10.777],[4.4145]])
-        # self.g_H_pr = np.tile(self.g_H, (self.Prediction_Horizon_H, 1))
-        # self.g_R = np.array([[5+10.777], [4.4145]]).reshape(-1, 1)
-        self.g_H = np.array([[-5], [0.0]])+np.array([[10.777],[4.4145]])
+        self.g_H = np.array([[-5], [0.0]])
         self.g_H_pr = np.tile(self.g_H, (self.Prediction_Horizon_H, 1))
-        self.g_R = np.array([[10+7.01], [0]]).reshape(-1, 1)
+        self.g_R = np.array([[10], [0.0]]).reshape(-1, 1)
         self.g_R_pr = np.tile(self.g_R, (self.Prediction_Horizon, 1))
-        self.v_R = 0.30
+        self.v_R = 1.0
         self.v_h = .3
         self.w_H = np.array([0.2]).reshape(-1, 1)
 
@@ -176,6 +174,7 @@ class RobotMPCTrackingController:
         self.theta_3 = np.array([2.5]).reshape(-1, 1)
         self.theta_4 = np.array([8.0]).reshape(-1, 1)
         self.theta_5 = np.array([100]).reshape(-1, 1)
+        self.tictoc= []
         
         self.theta_6 = np.array([1.]).reshape(-1, 1)
         U_H_constraint=np.array([[1], [1]]) 
@@ -254,12 +253,13 @@ class RobotMPCTrackingController:
         # Publisher and subscriber
         self.cmd_vel_pub = rospy.Publisher('/mobile_base/cmd_vel', Twist, queue_size=10)
         self.odom_sub = rospy.Subscriber('/mobile_base/odom', Odometry, self.odom_callback)
+        
         self.people_sub = rospy.Subscriber('/people_tracked', PersonArray, self.people_callback)
 
         # Set the control loop rate (5 Hz -> 0.2 sec)
-        self.rate = rospy.Rate(5)
+        self.rate = rospy.Rate(2)
 
-        self.reset_odometry()
+        # self.reset_odometry()
 
         rospy.loginfo("Robot MPC Tracking Controller Initialized")
 
@@ -317,12 +317,13 @@ class RobotMPCTrackingController:
     def odom_callback(self, msg):
         # Extract robot's position and orientation from odometry
         
-        self.current_x = msg.pose.pose.position.x-7.01
-        print(self.current_x )
-        self.current_y = msg.pose.pose.position.y-3.96
+        self.current_x = msg.pose.pose.position.x-4.84619-5.
+        
+        print("x",self.current_x )
+        self.current_y = msg.pose.pose.position.y-4.89829
         print(self.current_y )
         orientation_q = msg.pose.pose.orientation
-        self.current_yaw = self.quaternion_to_euler(orientation_q)-0.02
+        self.current_yaw = self.quaternion_to_euler(orientation_q)
         print(self.current_yaw)
 
         # Calculate the time difference for velocity estimation
@@ -337,19 +338,21 @@ class RobotMPCTrackingController:
 
         # Proceed only if time difference (dt) exceeds the desired sampling time (0.2 seconds)
         if dt >= 0.5:
-            if (self.prev_x is not None and 
+            if (self.human_position is not None and
+                self.prev_x is not None and 
                 self.prev_y is not None and 
                 self.prev_yaw is not None):
 
                 # Extract human position (assuming self.human_position is a tuple of (x, y))
-                # self.current_x_human = self.human_position.x*math.cos(self.current_yaw )+self.human_position.x*math.sin(self.current_yaw )+self.current_x 
-                # self.current_y_human = self.human_position.y*math.cos(self.current_yaw )-self.human_position.y*math.sin(self.current_yaw )+self.current_y
+                self.current_x_human = self.human_position.x*math.cos(self.current_yaw )+self.human_position.x*math.sin(self.current_yaw )+self.current_x 
+                self.current_y_human = self.human_position.y*math.cos(self.current_yaw )-self.human_position.y*math.sin(self.current_yaw )+self.current_y
 
                            # Convert human relative position to global position using correct trigonometric transformation
-                self.current_x_human = -100
+                # self.current_x_human = self.human_position.x 
                                         
-                self.current_y_human = 100
-
+                # self.current_y_human = self.human_position.y
+                print("x",self.current_x_human)
+                print(self.current_y_human)
                 # Update previous time
                 self.prev_time = current_time
 
@@ -385,30 +388,34 @@ class RobotMPCTrackingController:
                 # PD control for angular velocity
                 # angular_error_deriv = (angular_vel_robot - self.prev_angular_vel) / dt if dt > 0 else 0
                 # angular_vel = self.kp_angular * angle_error + self.kd_angular * angular_error_deriv
-
+                tic=rospy.Time.now().to_sec()
                 # Call the MPC-based planner to get the linear velocity
-                vel = self.Human_robot_action_planner(self.human_position, (self.current_x, self.current_y), linear_vel_human)
-                print(vel)
-                linear_vel = math.sqrt(vel[0]**2 + vel[1]**2)
-
+                # vel = self.Human_robot_action_planner(self.human_position, (self.current_x, self.current_y), linear_vel_human)
+                # linear_vel = math.sqrt(vel[0]**2 + vel[1]**2)
+                toc=rospy.Time.now().to_sec()
+                self.tictoc=(toc-tic)
+                
+                vel=.1
+                # print(vel)
                 # Calculate the current angle of the velocity vector
-                theta = math.atan2(vel[1], vel[0])  # Angle in radians
+                # theta = math.atan2(vel[1], vel[0])  # Angle in radians
 
                 # Calculate the angular velocity (rate of change of theta over time)
-                # angular_velocity = (theta - self.prev_yaw) / dt if dt > 0 else 0
-                angular_velocity=theta
+                # angular_velocity = theta
+
                 # Normalize the angular velocity to ensure it is in the range [-pi, pi]
-                angular_vel = (angular_velocity + np.pi) % (2 * np.pi) - np.pi
-                self.save_iteration_data(linear_vel_human, vel, self.current_x, self.current_y, self.current_x_human, self.current_y_human)
+                # angular_vel = (angular_velocity + np.pi) % (2 * np.pi) - np.pi
+
+                self.save_iteration_data(linear_vel_human, vel, self.current_x, self.current_y, self.current_x_human, self.current_y_human,self.tictoc)
                 # Publish velocity commands to the robot
                 cmd_msg = Twist()
-                cmd_msg.linear.x = linear_vel  # Use the planned linear velocity
-                cmd_msg.angular.z = angular_vel  # Use the calculated angular velocity
+                cmd_msg.linear.x = .1  # Use the planned linear velocity
+                cmd_msg.angular.z = 0.  # Use the calculated angular velocity
 
-                self.cmd_vel_pub.publish(cmd_msg)
+                # self.cmd_vel_pub.publish(cmd_msg)
 
-                rospy.loginfo(f"Robot Position: ({self.current_x}, {self.current_y}), Human Position: ({self.human_position[0]}, {self.human_position[1]})")
-                rospy.loginfo(f"Linear Velocity: {linear_vel}, Angular Velocity: {angular_vel}")
+                # rospy.loginfo(f"Robot Position: ({self.current_x}, {self.current_y}), Human Position: ({self.human_position.x}, {self.human_position.y})")
+                # rospy.loginfo(f"Linear Velocity: {linear_vel}, Angular Velocity: {angular_vel}")
                 self.inc += 1
 
                 
@@ -429,27 +436,27 @@ class RobotMPCTrackingController:
             self.prev_time = current_time
 
 
-    def reset_odometry(self):
-            pub = rospy.Publisher('/mobile_base/odom', Odometry, queue_size=10)
+    # def reset_odometry(self):
+    #         pub = rospy.Publisher('/mobile_base/odom', Odometry, queue_size=10)
             
-            reset_odom = Odometry()
-            reset_odom.pose.pose.position.x = 0.0
-            reset_odom.pose.pose.position.y = 0.0
-            reset_odom.pose.pose.position.z = 0.0
-            reset_odom.pose.pose.orientation.x = 0.0
-            reset_odom.pose.pose.orientation.y = 0.0
-            reset_odom.pose.pose.orientation.z = 0.0
-            reset_odom.pose.pose.orientation.w = 1.0
+    #         reset_odom = Odometry()
+    #         reset_odom.pose.pose.position.x = 0.0
+    #         reset_odom.pose.pose.position.y = 0.0
+    #         reset_odom.pose.pose.position.z = 0.0
+    #         reset_odom.pose.pose.orientation.x = 0.0
+    #         reset_odom.pose.pose.orientation.y = 0.0
+    #         reset_odom.pose.pose.orientation.z = 0.0
+    #         reset_odom.pose.pose.orientation.w = 1.0
             
-            rospy.sleep(1)  # Give some time for the publisher to initialize
-            pub.publish(reset_odom)
-            rospy.loginfo("Odometry reset to (0, 0, 0) with orientation (0, 0, 0, 1).")
+    #         rospy.sleep(1)  # Give some time for the publisher to initialize
+    #         pub.publish(reset_odom)
+    #         rospy.loginfo("Odometry reset to (0, 0, 0) with orientation (0, 0, 0, 1).")
     
 
     def Human_robot_action_planner(self, human_position, robot_position,linear_vel_human):
         constraints = []
-        x_human = 100
-        y_human= 100
+        x_human = human_position.x
+        y_human= human_position.y
         x_robot, y_robot = robot_position
 
         self.u_app_H[:,self.inc]=linear_vel_human.flatten()
@@ -493,10 +500,10 @@ class RobotMPCTrackingController:
 
         # Constraints
         def constraint1(u_R):
-            return np.min(u_R) + .30
+            return np.min(u_R) + 1.0
 
         def constraint2(u_R):
-            return .30 - np.max(u_R)
+            return 1.0 - np.max(u_R)
 
         def constraint3(u_R):
             x_pr = self.Abar @ x_R0 + self.Bbar @ u_R.reshape((self.NoI_R * self.Prediction_Horizon, 1))
@@ -770,17 +777,18 @@ class RobotMPCTrackingController:
             self.experimental_data[key] = np.array(self.experimental_data[key])
 
         # Save the experimental data to a .npz file
-        np.savez('experiment_data.npz', **self.experimental_data)
+        np.savez('experiment_data7a.npz', **self.experimental_data)
         rospy.loginfo("Experimental data saved successfully.")
 
-    def save_iteration_data(self, linear_vel_human, vel, current_x, current_y, current_x_human, current_y_human):
+    def save_iteration_data(self, linear_vel_human, vel, current_x, current_y, current_x_human, current_y_human,tictoc):
         # Save data from the current iteration into the experimental data dictionary
         self.experimental_data['u_app_H'].append(linear_vel_human)
         self.experimental_data['u_app_R'].append(vel)
-        self.experimental_data['x_H'].append([current_x_human, current_y_human])
-        self.experimental_data['x_R'].append([current_x, current_y])
+        self.experimental_data['x_H'].append([self.current_x_human, self.current_y_human])
+        self.experimental_data['x_R'].append([self.current_x, self.current_y])
         self.experimental_data['P_xH_all'].append(self.P_xH_all)
         self.experimental_data['P_t_all'].append(self.P_t_all)
+        self.experimental_data['tictoc'].append(tictoc)
         
         
         # Add other variables like P_t_all, P_Coll, etc. if needed
@@ -794,7 +802,7 @@ class RobotMPCTrackingController:
 
 if __name__ == '__main__':
     try:
-        rospy.init_node('robot_mpc_tracking_controller')
+        # rospy.init_node('robot_mpc_tracking_controller')
         controller = RobotMPCTrackingController()
         controller.run()
     except rospy.ROSInterruptException:
