@@ -6,28 +6,43 @@ from matplotlib.patches import Circle
 import matplotlib.colors as mcolors
 import zipfile
 
-# Function to load data from NZP files
-def load_data_from_nzp(nzp_filename):
+def load_data_from_npz_files(num_packages=1):
+    datasets = {}
+
+    for i in range(num_packages):
+        data_i = np.load(f'experiment_data{2}non.npz')
+        
+        datasets[f'Data {i + 1}'] = {
+            'u_app_H': data_i['u_app_H'],
+            'P_t_all': data_i['P_t_all'],
+            'time': data_i['time'],
+            'P_xH_all': data_i['P_xH_all'],
+            'P': data_i['P_xH_all'],  # 'P' is the same as 'P_xH_all'
+            'x_H': data_i['x_H'],
+            'x_R': data_i['x_R'],
+            'u_app_R': data_i['u_app_R']
+        }
+
+    return datasets
+
+# Usage
+datasets = load_data_from_npz_files()
+
+datasets['Data 1']['x_H']=datasets['Data 1']['x_H'].T
+datasets['Data 1']['x_R']=datasets['Data 1']['x_R'].T
+datasets['Data 1']['P_xH_all']=np.zeros(( datasets['Data 1']['x_H'].shape[1],1,21,21))
+# Access the data for the first dataset
+data1 = datasets['Data 1']
+# data2 = datasets['Data 2']
+
+# # Load the datasets
+# data1 = load_data_from_nzp('experiment_data.nzp')
+# data2 = load_data_from_nzp('experiment_data1.nzp')
+# svs=data1['x_H']
+# svs=data1['x_R']
+datasets = {'Data 1': data1, 'Data 2': data1}
 
 
-    data = {
-        'u_app_H': np.load('u_app_H.npy'),
-        'P_t_all': np.load('P_t_all.npy'),
-        'time': np.load('time.npy'),
-        'P_xH_all': np.load('P_xH_all.npy'),
-        'P': np.load('P_xH_all.npy'),
-        'x_H': np.load('x_H.npy'),
-        'x_R': np.load('x_R.npy'),
-        'u_app_R': np.load('u_app_R.npy')
-    }
-    return data
-
-# Load the datasets
-data1 = load_data_from_nzp('experiment_data.nzp')
-data2 = load_data_from_nzp('experiment_data1.nzp')
-svs=data1['x_H']
-svs=data1['x_R']
-datasets = {'Data 1': data1, 'Data 2': data2}
 
 # Create the figure with a grid layout for two rows and two columns
 fig, axs = plt.subplots(2, 2, figsize=(4, 6), gridspec_kw={'width_ratios': [1, 1], 'height_ratios': [4, 2], 'hspace': 0.3, 'wspace': 0.5})
@@ -46,10 +61,10 @@ cm = mcolors.LinearSegmentedColormap.from_list(cmap_name, colors, N=n_bins)
 # Initialize the plots for the first two rows
 for idx, (title, data) in enumerate(datasets.items()):
     # First row - Plot Human and Robot Trajectories
-    axs[0, idx].plot(data['x_H'][0, :], data['x_H'][1, :], 'g-', label='Human Trajectory')
-    axs[0, idx].plot(data['x_R'][0, :], data['x_R'][1, :], 'b-', label='Robot Trajectory')
-    axs[0, idx].plot([data['x_H'][0, 0]], [data['x_H'][1, 0]], 'go', label='Human Position')
-    axs[0, idx].plot([data['x_R'][0, 0]], [data['x_R'][1, 0]], 'bo', label='Robot Position')
+    axs[0, idx].plot(-data['x_H'][1, :], data['x_H'][0, :], 'g-', label='Human Trajectory')
+    axs[0, idx].plot(-data['x_R'][1, :], data['x_R'][0, :], 'b-', label='Robot Trajectory')
+    axs[0, idx].plot([-data['x_H'][1, 0]], [data['x_H'][0, 0]], 'go', label='Human Position')
+    axs[0, idx].plot([-data['x_R'][1, 0]], [data['x_R'][0, 0]], 'bo', label='Robot Position')
 
     # Add comfort circles
     comfort_circle = Circle((data['x_H'][0, 0], data['x_H'][1, 0]), 0.5, color='red', fill=False, alpha=1)
@@ -84,7 +99,7 @@ for idx, (title, data) in enumerate(datasets.items()):
 
 # Function to update plots
 frame_count = 0
-max_frames = 18
+max_frames = data['x_H'].shape[1]
 
 def update(frame):
     global frame_count
@@ -93,22 +108,22 @@ def update(frame):
 
     for idx, (title, data) in enumerate(datasets.items()):
         # Update trajectories
-        axs[0, idx].lines[-2].set_data([data['x_H'][0, frame]], [data['x_H'][1, frame]])
-        axs[0, idx].lines[-1].set_data([data['x_R'][0, frame]], [data['x_R'][1, frame]])
+        axs[0, idx].lines[-2].set_data([-data['x_H'][1, frame]], [data['x_H'][0, frame]])
+        axs[0, idx].lines[-1].set_data([-data['x_R'][1, frame]], [data['x_R'][0, frame]])
 
-        comfort_circles[idx].center = (data['x_H'][0, frame], data['x_H'][1, frame])
+        comfort_circles[idx].center = (-data['x_H'][1, frame], data['x_H'][0, frame])
 
         # Update P_xH_all slices
         axs[1, idx].imshow(data['P_xH_all'][frame][0], extent=[-5.5, 5.5, -5.5, 5.5], 
                            origin='lower', interpolation='nearest', cmap=cm, alpha=0.5)
 
         # Update robot and human dots
-        robot_dot_x = data['x_R'][0, frame]
-        robot_dot_y = data['x_R'][1, frame]
+        robot_dot_x = -data['x_R'][1, frame]
+        robot_dot_y = data['x_R'][0, frame]
         robot_dots[idx].set_data([robot_dot_x], [robot_dot_y])
 
-        human_dot_x = data['x_H'][0, frame]
-        human_dot_y = data['x_H'][1, frame]
+        human_dot_x = -data['x_H'][1, frame]
+        human_dot_y = data['x_H'][0, frame]
         human_dots[idx].set_data([human_dot_x], [human_dot_y])
 
         if frame == max_frames - 1:

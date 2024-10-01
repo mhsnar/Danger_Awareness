@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.patches import Circle
 import matplotlib.colors as mcolors
-
+import matplotlib.ticker as ticker
 # Load datasets
 datasets = {
     'Dataset 1': {
@@ -39,7 +39,7 @@ datasets = {
 }
 
 # Create the figure with transposed grid layout (6 rows, 2 columns)
-fig, axs = plt.subplots(6, 2, figsize=(6, 120), gridspec_kw={'width_ratios': [1, 1], 'height_ratios': [4, 2, 2, 2, 2, 2], 'hspace': 0.3, 'wspace': 0.5})
+fig, axs = plt.subplots(6, 2, figsize=(6, 20), gridspec_kw={'width_ratios': [1, 1], 'height_ratios': [4, 2, 2, 2, 2, 2], 'hspace': 0.3, 'wspace': 0.5})
 plt.tight_layout(pad=0.5, w_pad=0.5, h_pad=0.5)
 
 # Placeholders for plots
@@ -77,20 +77,43 @@ for idx, (title, data) in enumerate(datasets.items()):
 
     if idx == 0:  # Add legend to the first plot in the first row
         legend = axs[0, idx].legend(loc='upper center', bbox_to_anchor=(1.2, 1.14), ncol=4, fontsize=8.5)
-    
+    x_ticks = np.array([-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5])
     # Second to last rows - Plot P_xH_all slices
     for row in range(1, 6):  # Rows 1 to 5 (0-indexed)
         axs[row, idx].imshow(data['P_xH_all'][0][row - 1], extent=[-5.5, 5.5, -5.5, 5.5], 
                              origin='lower', interpolation='nearest', cmap=cm, alpha=0.5)
 
-        axs[5, idx].set_xlabel('$N_c$')
-        axs[row, 0].set_ylabel('$N_c$')
-        axs[row, 1].set_ylabel(r'$N_R={}$'.format(row), fontsize=12)
+        axs[5, idx].set_xlabel('$cells$')
+        # axs[row, 0].set_ylabel('$N_c$')
+        axs[row, 1].set_ylabel(r'$k={}$'.format(row), fontsize=12)
          # Adjust the label properties to make it horizontal
         axs[row, 1].yaxis.set_label_coords(-.7, 0.5)  # Adjust position (x, y)
         axs[row, 1].yaxis.label.set_rotation(0)  # Set rotation to horizontal
-        axs[row, idx].locator_params(axis='x', nbins=20)
-        axs[row, idx].locator_params(axis='y', nbins=20)
+        # axs[row, idx].locator_params(axis='x', nbins=20)
+        # axs[row, idx].locator_params(axis='y', nbins=20)
+        axs[row, idx].minorticks_on()  # Turn on minor ticks
+        # axs[row, idx].xaxis.set_minor_locator(ticker.AutoMinorLocator(2))
+        # axs[row, idx].yaxis.set_minor_locator(ticker.AutoMinorLocator(2)) 
+        # axs[row, idx].tick_params(axis='x', which='both', length=4, color='gray')  # Minor ticks appearance
+        # axs[row, idx].tick_params(axis='y', which='minor', length=4, color='gray')
+
+
+        axs[row, idx].xaxis.set_major_locator(ticker.MultipleLocator(2))  # Major ticks every 1 unit
+        axs[row, idx].xaxis.set_minor_locator(ticker.AutoMinorLocator(5))  # 5 minor ticks between major ticks
+
+        axs[row, idx].yaxis.set_major_locator(ticker.MultipleLocator(2))  # Major ticks every 0.5 unit
+        axs[row, idx].yaxis.set_minor_locator(ticker.AutoMinorLocator(5))  # 5 minor ticks between major ticks
+
+        # Turn on the grid for both major and minor ticks
+        axs[row, idx].grid(which='minor', linestyle='--', linewidth=0.5)
+
+        # Customize tick parameters for better visibility
+        # axs[row, idx].tick_params(axis='x', which='major', length=6, color='black')
+        # axs[row, idx].tick_params(axis='x', which='minor', length=4, color='gray')
+        # axs[row, idx].tick_params(axis='y', which='major', length=6, color='black')
+        # axs[row, idx].tick_params(axis='y', which='minor', length=4, color='gray')
+        
+        # axs[row, idx].set_xticklabels([str(tick) for tick in x_ticks], fontsize=10)  # Format the tick labels
         axs[row, idx].grid(True)
 
         robot_dot, = axs[row, idx].plot([], [], 'bo', markersize=4)
