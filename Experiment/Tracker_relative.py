@@ -321,10 +321,10 @@ class RobotMPCTrackingController:
         
         print("x",self.current_x )
         self.current_y = msg.pose.pose.position.y-4.89829
-        print(self.current_y )
+        print("y",self.current_y )
         orientation_q = msg.pose.pose.orientation
         self.current_yaw = self.quaternion_to_euler(orientation_q)
-        print(self.current_yaw)
+        print("yaw",self.current_yaw)
 
         # Calculate the time difference for velocity estimation
         current_time = rospy.Time.now().to_sec()  # Get the current time
@@ -354,8 +354,8 @@ class RobotMPCTrackingController:
                 # self.current_x_human = self.human_position.x 
                                         
                 # self.current_y_human = self.human_position.y
-                print("x",self.current_x_human)
-                print(self.current_y_human)
+                print("x_human",self.current_x_human)
+                print("y_human",self.current_y_human)
                 # Update previous time
                 self.prev_time = current_time
 

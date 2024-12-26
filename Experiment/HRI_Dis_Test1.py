@@ -257,7 +257,7 @@ class RobotMPCTrackingController:
         self.people_sub = rospy.Subscriber('/people_tracked', PersonArray, self.people_callback)
 
         # Set the control loop rate (5 Hz -> 0.2 sec)
-        self.rate = rospy.Rate(5)
+        self.rate = rospy.Rate(2)
 
         # self.reset_odometry()
 
@@ -337,134 +337,103 @@ class RobotMPCTrackingController:
         dt = current_time - self.prev_time  # Time difference in seconds
 
         # Proceed only if time difference (dt) exceeds the desired sampling time (0.2 seconds)
-        # if dt >= 0.2:
-        if (self.human_position is not None and
-            self.prev_x is not None and 
-            self.prev_y is not None and 
-            self.prev_yaw is not None):
+        if dt >= 0.5:
+            if (self.human_position is not None and
+                self.prev_x is not None and 
+                self.prev_y is not None and 
+                self.prev_yaw is not None):
 
-            # Extract human position (assuming self.human_position is a tuple of (x, y))
-            self.current_x_human = self.human_position.x*math.cos(self.current_yaw )+self.human_position.x*math.sin(self.current_yaw )+self.current_x 
-            self.current_y_human = self.human_position.y*math.cos(self.current_yaw )-self.human_position.y*math.sin(self.current_yaw )+self.current_y
+                # Extract human position (assuming self.human_position is a tuple of (x, y))
+                self.current_x_human = self.human_position.x*math.cos(self.current_yaw )+self.human_position.x*math.sin(self.current_yaw )+self.current_x 
+                self.current_y_human = self.human_position.y*math.cos(self.current_yaw )-self.human_position.y*math.sin(self.current_yaw )+self.current_y
 
-                        # Convert human relative position to global position using correct trigonometric transformation
-            # self.current_x_human = self.human_position.x 
-                                    
-            # self.current_y_human = self.human_position.y
-            print("x_human",self.current_x_human)
-            print("y_human",self.current_y_human)
-            # Update previous time
+                           # Convert human relative position to global position using correct trigonometric transformation
+                # self.current_x_human = self.human_position.x 
+                                        
+                # self.current_y_human = self.human_position.y
+                print("x_human",self.current_x_human)
+                print("y_human",self.current_y_human)
+                # Update previous time
+                self.prev_time = current_time
+
+                # Compute the estimated linear and angular velocities for the robot
+                dx = self.current_x - self.prev_x
+                dy = self.current_y - self.prev_y
+                dtheta = self.current_yaw - self.prev_yaw
+
+                # Normalize angle difference to the range [-pi, pi]
+                dtheta = (dtheta + math.pi) % (2 * math.pi) - math.pi
+
+                # Estimated robot velocities
+                linear_vel_robot = math.sqrt(dx ** 2 + dy ** 2) / dt if dt > 0 else 0
+                angular_vel_robot = dtheta / dt if dt > 0 else 0
+
+                #--------------------------------------------------------------
+                # Human velocity estimation
+                Vx_human = (self.current_x_human - self.prev_x_human) / dt if dt > 0 else 0
+                Vy_human = (self.current_y_human - self.prev_y_human) / dt if dt > 0 else 0
+
+                # Estimated human linear velocity (as a (2,1) array)
+                linear_vel_human = np.array([[Vx_human], [Vy_human]])
+
+                #--------------------------------------------------------------
+
+                # Compute desired angle to the goal (robot's movement towards a goal)
+                # desired_theta = math.atan2(self.g_R[1] - self.current_y, self.g_R[0] - self.current_x)
+
+                # # Compute angle error for angular control
+                # angle_error = desired_theta - self.current_yaw
+                # angle_error = (angle_error + math.pi) % (2 * math.pi) - math.pi
+
+                # PD control for angular velocity
+                # angular_error_deriv = (angular_vel_robot - self.prev_angular_vel) / dt if dt > 0 else 0
+                # angular_vel = self.kp_angular * angle_error + self.kd_angular * angular_error_deriv
+                tic=rospy.Time.now().to_sec()
+                # Call the MPC-based planner to get the linear velocity
+                # vel = self.Human_robot_action_planner(self.human_position, (self.current_x, self.current_y), linear_vel_human)
+                # linear_vel = math.sqrt(vel[0]**2 + vel[1]**2)
+                toc=rospy.Time.now().to_sec()
+                self.tictoc=(toc-tic)
+                
+                vel=.1
+                # print(vel)
+                # Calculate the current angle of the velocity vector
+                # theta = math.atan2(vel[1], vel[0])  # Angle in radians
+
+                # Calculate the angular velocity (rate of change of theta over time)
+                # angular_velocity = theta
+
+                # Normalize the angular velocity to ensure it is in the range [-pi, pi]
+                # angular_vel = (angular_velocity + np.pi) % (2 * np.pi) - np.pi
+
+                self.save_iteration_data(linear_vel_human, vel, self.current_x, self.current_y, self.current_x_human, self.current_y_human,self.tictoc)
+                # Publish velocity commands to the robot
+                cmd_msg = Twist()
+                cmd_msg.linear.x = .1  # Use the planned linear velocity
+                cmd_msg.angular.z = 0.  # Use the calculated angular velocity
+
+                # self.cmd_vel_pub.publish(cmd_msg)
+
+                # rospy.loginfo(f"Robot Position: ({self.current_x}, {self.current_y}), Human Position: ({self.human_position.x}, {self.human_position.y})")
+                # rospy.loginfo(f"Linear Velocity: {linear_vel}, Angular Velocity: {angular_vel}")
+                self.inc += 1
+
+                
+
+
+                # self.prev_yaw_human should be defined elsewhere if yaw tracking for the human is needed
+
+                # Uncomment and update these if necessary for tracking velocities
+                # self.prev_linear_vel = linear_vel_robot
+                self.prev_angular_vel = angular_vel_robot
+            # Update previous values for the robot and human
+            self.prev_x_human = self.current_x_human
+            self.prev_y_human = self.current_y_human
+            self.prev_x = self.current_x
+            self.prev_y = self.current_y
+            self.prev_yaw = self.current_yaw
+            # Update previous time if time has elapsed sufficiently
             self.prev_time = current_time
-
-            dx = self.current_x - self.prev_x
-            dy = self.current_y - self.prev_y
-            dtheta = self.current_yaw - self.prev_yaw
-
-            # Normalize angle difference to the range [-pi, pi]
-            dtheta = (dtheta + math.pi) % (2 * math.pi) - math.pi
-
-            # Estimated velocities
-            linear_vel_robot = math.sqrt(dx ** 2 + dy ** 2) / dt
-            angular_vel_robot = dtheta / dt
-
-            # Compute position error (Euclidean distance to the goal)
-            pos_error = math.sqrt((self.current_x_human - self.current_x) ** 2 + (self.current_y_human - self.current_y) ** 2)
-
-            # Compute desired angle to the goal
-            desired_theta = math.atan2(self.current_y_human- self.current_y, self.current_x_human - self.current_x)
-
-            # Compute angle error
-            angle_error = desired_theta - self.current_yaw
-            angle_error = (angle_error + math.pi) % (2 * math.pi) - math.pi
-
-            # PD control for linear velocity
-            linear_error_deriv = (linear_vel_robot - self.prev_linear_vel) / dt
-            linear_vel = self.kp_linear * pos_error + self.kd_linear * linear_error_deriv
-
-            # PD control for angular velocity
-            angular_error_deriv = (angular_vel_robot - self.prev_angular_vel) / dt
-            angular_vel = self.kp_angular * angle_error + self.kd_angular * angular_error_deriv
-
-    
-            #--------------------------------------------------------------
-            # Human velocity estimation
-            Vx_human = (self.current_x_human - self.prev_x_human) / dt if dt > 0 else 0
-            Vy_human = (self.current_y_human - self.prev_y_human) / dt if dt > 0 else 0
-
-            # Estimated human linear velocity (as a (2,1) array)
-            linear_vel_human = np.array([[Vx_human], [Vy_human]])
-
-            #--------------------------------------------------------------
-
-            # Compute desired angle to the goal (robot's movement towards a goal)
-            # desired_theta = math.atan2(self.g_R[1] - self.current_y, self.g_R[0] - self.current_x)
-
-            # # Compute angle error for angular control
-            # angle_error = desired_theta - self.current_yaw
-            # angle_error = (angle_error + math.pi) % (2 * math.pi) - math.pi
-
-            # PD control for angular velocity
-            # angular_error_deriv = (angular_vel_robot - self.prev_angular_vel) / dt if dt > 0 else 0
-            # angular_vel = self.kp_angular * angle_error + self.kd_angular * angular_error_deriv
-            tic=rospy.Time.now().to_sec()
-            # Call the MPC-based planner to get the linear velocity
-            # vel = self.Human_robot_action_planner(self.human_position, (self.current_x, self.current_y), linear_vel_human)
-            # linear_vel = math.sqrt(vel[0]**2 + vel[1]**2)
-            toc=rospy.Time.now().to_sec()
-            self.tictoc=(toc-tic)
-            
-            vel=.1
-            # print(vel)
-            # Calculate the current angle of the velocity vector
-            # theta = math.atan2(vel[1], vel[0])  # Angle in radians
-
-            # Calculate the angular velocity (rate of change of theta over time)
-            # angular_velocity = theta
-
-            # Normalize the angular velocity to ensure it is in the range [-pi, pi]
-            # angular_vel = (angular_velocity + np.pi) % (2 * np.pi) - np.pi
-
-
-            MAX_LINEAR_VEL = 0.33  # Maximum linear velocity
-            MIN_LINEAR_VEL = -0.33  # Minimum linear velocity
-            MAX_ANGULAR_VEL = 0.33 # Maximum angular velocity
-            MIN_ANGULAR_VEL = -.33  # Minimum angular velocity
-
-            # Saturate linear velocity
-            linear_vel = max(MIN_LINEAR_VEL, min(MAX_LINEAR_VEL, linear_vel))
-
-            # Saturate angular velocity
-            angular_vel = max(MIN_ANGULAR_VEL, min(MAX_ANGULAR_VEL, angular_vel))
-
-            self.save_iteration_data(linear_vel_human, vel, self.current_x, self.current_y, self.current_x_human, self.current_y_human,self.tictoc)
-            # Publish velocity commands to the robot
-            cmd_msg = Twist()
-            cmd_msg.linear.x = linear_vel # Use the planned linear velocity
-            cmd_msg.angular.z = angular_vel  # Use the calculated angular velocity
-
-
-            self.cmd_vel_pub.publish(cmd_msg)
-
-            # rospy.loginfo(f"Robot Position: ({self.current_x}, {self.current_y}), Human Position: ({self.human_position.x}, {self.human_position.y})")
-            # rospy.loginfo(f"Linear Velocity: {linear_vel}, Angular Velocity: {angular_vel}")
-            self.inc += 1
-
-            
-
-
-            # self.prev_yaw_human should be defined elsewhere if yaw tracking for the human is needed
-
-            # Uncomment and update these if necessary for tracking velocities
-            self.prev_linear_vel = linear_vel_robot
-            self.prev_angular_vel = angular_vel_robot
-        # Update previous values for the robot and human
-        self.prev_x_human = self.current_x_human
-        self.prev_y_human = self.current_y_human
-        self.prev_x = self.current_x
-        self.prev_y = self.current_y
-        self.prev_yaw = self.current_yaw
-        # Update previous time if time has elapsed sufficiently
-        self.prev_time = current_time
 
 
     # def reset_odometry(self):
