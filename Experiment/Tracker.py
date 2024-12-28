@@ -234,10 +234,12 @@ class RobotMPCTrackingController:
         self.current_x = 0.0
         self.current_y = 0.0
         self.current_yaw = 0.0
+        self.pos_error=0.0
         self.human_position = None
         self.prev_x = None
         self.prev_y = None
         self.prev_yaw = None
+        self.prev_error= 0.0
 
 
         # Human state variables
@@ -317,13 +319,13 @@ class RobotMPCTrackingController:
     def odom_callback(self, msg):
         # Extract robot's position and orientation from odometry
         
-        self.current_x = msg.pose.pose.position.x-4.84619-5.
+        self.current_x = msg.pose.pose.position.x+0.1558919996023178+0.20596416294574738-0.17170383036136627
         
         print("x",self.current_x )
-        self.current_y = msg.pose.pose.position.y-4.89829
+        self.current_y = msg.pose.pose.position.y- 0.07570721954107285+0.11190731823444366+0.17982666939496994
         print("y",self.current_y )
         orientation_q = msg.pose.pose.orientation
-        self.current_yaw = self.quaternion_to_euler(orientation_q)
+        self.current_yaw = self.quaternion_to_euler(orientation_q)- 0.04433222286790572-0.017533420280295184-0.374933016895577
         print("yaw",self.current_yaw)
 
         # Calculate the time difference for velocity estimation
@@ -344,8 +346,8 @@ class RobotMPCTrackingController:
             self.prev_yaw is not None):
 
             # Extract human position (assuming self.human_position is a tuple of (x, y))
-            self.current_x_human = self.human_position.x*math.cos(self.current_yaw )+self.human_position.x*math.sin(self.current_yaw )+self.current_x 
-            self.current_y_human = self.human_position.y*math.cos(self.current_yaw )-self.human_position.y*math.sin(self.current_yaw )+self.current_y
+            self.current_x_human = self.human_position.x*math.cos(self.current_yaw )-self.human_position.y*math.sin(self.current_yaw )+self.current_x 
+            self.current_y_human = self.human_position.y*math.cos(self.current_yaw )+self.human_position.x*math.sin(self.current_yaw )+self.current_y
 
                         # Convert human relative position to global position using correct trigonometric transformation
             # self.current_x_human = self.human_position.x 
@@ -368,7 +370,7 @@ class RobotMPCTrackingController:
             angular_vel_robot = dtheta / dt
 
             # Compute position error (Euclidean distance to the goal)
-            pos_error = math.sqrt((self.current_x_human - self.current_x) ** 2 + (self.current_y_human - self.current_y) ** 2)
+            self.pos_error = math.sqrt((self.current_x_human - self.current_x) ** 2 + (self.current_y_human - self.current_y) ** 2)-0.5
 
             # Compute desired angle to the goal
             desired_theta = math.atan2(self.current_y_human- self.current_y, self.current_x_human - self.current_x)
@@ -378,8 +380,8 @@ class RobotMPCTrackingController:
             angle_error = (angle_error + math.pi) % (2 * math.pi) - math.pi
 
             # PD control for linear velocity
-            linear_error_deriv = (linear_vel_robot - self.prev_linear_vel) / dt
-            linear_vel = self.kp_linear * pos_error + self.kd_linear * linear_error_deriv
+            linear_error_deriv = (self.pos_error - self.prev_error) / dt
+            linear_vel = self.kp_linear * self.pos_error + self.kd_linear * linear_error_deriv
 
             # PD control for angular velocity
             angular_error_deriv = (angular_vel_robot - self.prev_angular_vel) / dt
@@ -425,10 +427,10 @@ class RobotMPCTrackingController:
             # angular_vel = (angular_velocity + np.pi) % (2 * np.pi) - np.pi
 
 
-            MAX_LINEAR_VEL = 0.33  # Maximum linear velocity
-            MIN_LINEAR_VEL = -0.33  # Minimum linear velocity
-            MAX_ANGULAR_VEL = 0.33 # Maximum angular velocity
-            MIN_ANGULAR_VEL = -.33  # Minimum angular velocity
+            MAX_LINEAR_VEL = 0.2  # Maximum linear velocity
+            MIN_LINEAR_VEL = 0.0  # Minimum linear velocity
+            MAX_ANGULAR_VEL = 0.2 # Maximum angular velocity
+            MIN_ANGULAR_VEL = -.2  # Minimum angular velocity
 
             # Saturate linear velocity
             linear_vel = max(MIN_LINEAR_VEL, min(MAX_LINEAR_VEL, linear_vel))
@@ -463,6 +465,7 @@ class RobotMPCTrackingController:
         self.prev_x = self.current_x
         self.prev_y = self.current_y
         self.prev_yaw = self.current_yaw
+        self.prev_error= self.pos_error
         # Update previous time if time has elapsed sufficiently
         self.prev_time = current_time
 
