@@ -238,6 +238,8 @@ class RobotMPCTrackingController:
         self.prev_x = None
         self.prev_y = None
         self.prev_yaw = None
+        self.pos_error=0.0
+        self.prev_error= 0.0
 
 
         # Human state variables
@@ -317,10 +319,10 @@ class RobotMPCTrackingController:
     def odom_callback(self, msg):
         # Extract robot's position and orientation from odometry
         
-        self.current_x = msg.pose.pose.position.x-4.84619-5.
+        self.current_x = msg.pose.pose.position.x-0.0
         
         print("x",self.current_x )
-        self.current_y = msg.pose.pose.position.y-4.89829
+        self.current_y = msg.pose.pose.position.y-0.0
         print("y",self.current_y )
         orientation_q = msg.pose.pose.orientation
         self.current_yaw = self.quaternion_to_euler(orientation_q)
@@ -371,7 +373,7 @@ class RobotMPCTrackingController:
                 angular_vel_robot = dtheta / dt
 
                 # Compute position error (Euclidean distance to the goal)
-                pos_error = math.sqrt((offset_x -.5) ** 2 + (offset_y-.5) ** 2)
+                self.pos_error = math.sqrt((offset_x -.5) ** 2 + (offset_y-.5) ** 2)
 
                 # Compute desired angle to the goal
                 desired_theta = math.atan2(offset_y, offset_x)
@@ -381,7 +383,7 @@ class RobotMPCTrackingController:
                 angle_error = (angle_error + math.pi) % (2 * math.pi) - math.pi
 
                 # PD control for linear velocity
-                linear_error_deriv = (linear_vel_robot - self.prev_linear_vel) / dt
+                linear_error_deriv = (self.pos_error - self.prev_error) / dt
                 linear_vel = self.kp_linear * pos_error + self.kd_linear * linear_error_deriv
 
                 # PD control for angular velocity
@@ -466,6 +468,7 @@ class RobotMPCTrackingController:
             self.prev_x = self.current_x
             self.prev_y = self.current_y
             self.prev_yaw = self.current_yaw
+            self.prev_error= self.pos_error
             # Update previous time if time has elapsed sufficiently
             self.prev_time = current_time
 
