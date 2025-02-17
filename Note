@@ -1,1 +1,2 @@
-Using natnet in the Ubuntu needs to Run a Windows VM at the same time to stream the postion data in the motive software on Windows(specifically when a rigid body is needed), and then, writing a python node to subscribe to the streamed data. 
+Using natnet in Ubuntu needs to Run a Windows VM at the same time to stream the position data in the motive software on Windows(specifically when a rigid body is needed), and then, writing a python node to subscribe to the streamed data. 
+The minor challenge would be having two VM with same IP address!
