@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
 import rospy
-from geometry_msgs.msg import Twist
-from nav_msgs.msg import Odometry
-from leg_tracker.msg import PersonArray
+from geometry_msgs.msg import Twist, PoseStamped
+import math
+
 import math
 import yaml
 
 import numpy as np
 import cvxpy as cp
 from scipy.optimize import minimize
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-import matplotlib.colors as mcolors
-from matplotlib.patches import FancyArrowPatch
-from matplotlib.patches import FancyBboxPatch
+
 
 class RobotMPCTrackingController:
     def __init__(self):
@@ -34,15 +30,15 @@ class RobotMPCTrackingController:
 
         # Robot Model
         self.n = 500
-        self.Prediction_Horizon = 5
+        self.Prediction_Horizon = 2
         self.Prediction_Horizon_H = self.Prediction_Horizon
         self.Signal = "off"  # Signal could be "on" or "off"
-        self.Human = "Concerned"  # Human could be "Concerned" or "Unconcerned"
+        self.Human = "Unconcerned"  # Human could be "Concerned" or "Unconcerned"
 
-        self.deltaT = 0.5
-        self.Safe_Distance = 4
+        self.deltaT = 7
+        self.Safe_Distance = 1
         self.A_R = np.array([[1.0, 0.], [0., 1.]])
-        self.B_R = np.array([[self.deltaT, 0.0], [0.0, self.deltaT]])
+        self.B_R = np.array([[self.deltaT/self.deltaT/2, 0.0], [0.0, self.deltaT/self.deltaT/2]])
         self.C_R = np.eye(2, 2)
         self.D_R = np.zeros((2, 2))
 
@@ -123,7 +119,8 @@ class RobotMPCTrackingController:
             self.beta = 0
         self.P_t = np.array([.5, .5])
 
-        self.Nc = np.array([-5.0, -4.5, -4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0])
+        # self.Nc = np.array([-5.0, -4.5, -4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0])
+        self.Nc = np.array([ -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0])
 
         self.X, self.Y = np.meshgrid(self.Nc, self.Nc)
 
@@ -133,13 +130,15 @@ class RobotMPCTrackingController:
             for j in range(self.Nc.shape[0]):
                 self.coordinates_matrix[i, j] = np.array([[self.X[i, j]], [self.Y[i, j]]])
         self.Nc = self.coordinates_matrix
+        
+        edgha=self.Nc[5, 5]
 
-        self.g_H = np.array([[-5], [0.0]])
+        self.g_H = np.array([[-3.0], [0.0]])
         self.g_H_pr = np.tile(self.g_H, (self.Prediction_Horizon_H, 1))
-        self.g_R = np.array([[10], [0.0]]).reshape(-1, 1)
+        self.g_R = np.array([[-.25], [-2.0]]).reshape(-1, 1)
         self.g_R_pr = np.tile(self.g_R, (self.Prediction_Horizon, 1))
         self.v_R = 0.30
-        self.v_h = .3
+        self.v_h = .5/self.deltaT
         self.w_H = np.array([0.2]).reshape(-1, 1)
 
         self.u_H_values = np.array([-2 * self.v_h, -1 * self.v_h, 0, 1 * self.v_h, 2 * self.v_h])
@@ -250,13 +249,13 @@ class RobotMPCTrackingController:
 
         # Publisher and subscriber
         self.cmd_vel_pub = rospy.Publisher('/mobile_base/cmd_vel', Twist, queue_size=10)
-        self.odom_sub = rospy.Subscriber('/mobile_base/odom', Odometry, self.odom_callback)
-        self.people_sub = rospy.Subscriber('/people_tracked', PersonArray, self.people_callback)
+        self.robot_pose_sub = rospy.Subscriber('/natnet_ros/Locobot/pose', PoseStamped, self.robot_pose_callback)
+        self.human_pose_sub = rospy.Subscriber('/natnet_ros/Human/pose', PoseStamped, self.human_pose_callback)
 
         # Set the control loop rate (5 Hz -> 0.2 sec)
-        self.rate = rospy.Rate(2)
+        self.rate = rospy.Rate(1/self.deltaT)
 
-        self.reset_odometry()
+        
 
         rospy.loginfo("Robot MPC Tracking Controller Initialized")
 
@@ -271,56 +270,40 @@ class RobotMPCTrackingController:
         cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
         return math.atan2(siny_cosp, cosy_cosp)  # Return only yaw
 
-    def people_callback(self, data):
-        # Check if there are people tracked
-        if not data.people:
-            rospy.loginfo("No people tracked")
-            return
-        # Select the person with the highest ID
-        highest_id = -1
-        selected_person = None
+    def human_pose_callback(self, msg):
+        self.human_position = msg.pose.position
+        # rospy.loginfo(f"Human Position - x: {self.human_position.x}, y: {self.human_position.y}")
 
-        for person in data.people:
-            if person.id > highest_id:
-                highest_id = person.id
-                selected_person = person
 
-        if selected_person:
-            self.human_position = selected_person.pose.position
-            rospy.loginfo(f"Tracking person with ID: {highest_id}, Position - x: {self.human_position.x}, y: {self.human_position.y}")
-
-    # def odom_callback(self, msg):
-    #     # Extract robot's position and orientation from odometry
-    #     self.current_x = msg.pose.pose.position.x
-    #     self.current_y = msg.pose.pose.position.y
-
-    #     orientation_q = msg.pose.pose.orientation
-    #     self.current_yaw = self.quaternion_to_euler(orientation_q)
-
-    #     if self.human_position is not None:
-    #         # Call the MPC-based planner
-    #         linear_vel = self.Human_robot_action_planner(self.human_position, (self.current_x, self.current_y))
-
-    #         # Publish velocity commands
-    #         cmd_msg = Twist()
-    #         cmd_msg.linear.x = linear_vel[0, 0]  # X velocity
-    #         cmd_msg.linear.y = linear_vel[1, 0] 
-    #         self.cmd_vel_pub.publish(cmd_msg)
-
-    #         rospy.loginfo(f"Robot Position: ({self.current_x}, {self.current_y}), Human Position: ({self.human_position.x}, {self.human_position.y})")
-    #         rospy.loginfo(f"Linear Velocity: {linear_vel}")
-    #         self.inc += 1
-
-    def odom_callback(self, msg):
+    def robot_pose_callback(self, msg):
         # Extract robot's position and orientation from odometry
         
-        self.current_x = msg.pose.pose.position.x
-        print(self.current_x )
-        self.current_y = msg.pose.pose.position.y
-        print(self.current_y )
-        orientation_q = msg.pose.pose.orientation
+        self.current_x =  msg.pose.position.x
+        # print(self.current_x )
+        self.current_y = msg.pose.position.y
+        # print(self.current_y )
+
+
+
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        min_distance = float('inf')
+        rounded_position = None
+
+        # Iterate through the grid to find the closest coordinate
+        for i in range(self.Nc.shape[0]):
+            for j in range(self.Nc.shape[1]):
+                grid_x, grid_y = self.Nc[i, j].flatten()  # Extract grid point
+                distance = np.sqrt((grid_x - self.current_x)**2 + (grid_y - self.current_y)**2)  # Compute Euclidean distance
+                
+                if distance < min_distance:
+                    min_distance = distance
+                    rounded_position = self.Nc[i, j]  # Store closest coordinate
+        # self.current_x = rounded_position[0].item() 
+        # self.current_y = rounded_position[1].item() 
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        orientation_q = msg.pose.orientation
         self.current_yaw = self.quaternion_to_euler(orientation_q)
-        print(self.current_yaw)
+        # print(self.current_yaw)
 
         # Calculate the time difference for velocity estimation
         current_time = rospy.Time.now().to_sec()  # Get the current time
@@ -333,7 +316,7 @@ class RobotMPCTrackingController:
         dt = current_time - self.prev_time  # Time difference in seconds
 
         # Proceed only if time difference (dt) exceeds the desired sampling time (0.2 seconds)
-        if dt >= 0.5:
+        if dt >= self.deltaT:
             if (self.human_position is not None and 
                 self.prev_x is not None and 
                 self.prev_y is not None and 
@@ -343,16 +326,28 @@ class RobotMPCTrackingController:
                 # self.current_x_human = self.human_position.x*math.cos(self.current_yaw )+self.human_position.x*math.sin(self.current_yaw )+self.current_x 
                 # self.current_y_human = self.human_position.y*math.cos(self.current_yaw )-self.human_position.y*math.sin(self.current_yaw )+self.current_y
 
-                           # Convert human relative position to global position using correct trigonometric transformation
-                self.current_x_human = (self.human_position.x * math.cos(self.current_yaw) - 
-                                        self.human_position.y * math.sin(self.current_yaw) + 
-                                        self.current_x)
-                                        
-                self.current_y_human = (self.human_position.x * math.sin(self.current_yaw) + 
-                                        self.human_position.y * math.cos(self.current_yaw) + 
-                                        self.current_y)
-                print(self.current_x_human)
-                print(self.current_y_human)
+                self.current_x_human = self.human_position.x
+                self.current_y_human = self.human_position.y
+
+
+                #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                min_distance = float('inf')
+                rounded_position = None
+
+                # Iterate through the grid to find the closest coordinate
+                for i in range(self.Nc.shape[0]):
+                    for j in range(self.Nc.shape[1]):
+                        grid_x, grid_y = self.Nc[i, j].flatten()  # Extract grid point
+                        distance = np.sqrt((grid_x - self.current_x_human)**2 + (grid_y - self.current_y_human)**2)  # Compute Euclidean distance
+                        
+                        if distance < min_distance:
+                            min_distance = distance
+                            rounded_position = self.Nc[i, j]  # Store closest coordinate
+                self.current_x_human = rounded_position[0].item() 
+                self.current_y_human = rounded_position[1].item() 
+                #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                # print(self.current_x_human)
+                # print(self.current_y_human)
                 # Update previous time
                 self.prev_time = current_time
 
@@ -391,26 +386,39 @@ class RobotMPCTrackingController:
 
                 # Call the MPC-based planner to get the linear velocity
                 vel = self.Human_robot_action_planner(self.human_position, (self.current_x, self.current_y), linear_vel_human)
-                linear_vel = math.sqrt(vel[0]**2 + vel[1]**2)
+                # linear_vel = math.sqrt(vel[0]**2 + vel[1]**2)
                 print(vel)
                 # Calculate the current angle of the velocity vector
-                theta = math.atan2(vel[1], vel[0])  # Angle in radians
 
-                # Calculate the angular velocity (rate of change of theta over time)
-                angular_velocity = theta
+                #############################   
 
+                linear_vel = vel[0] * np.cos(self.current_yaw ) + vel[1]* np.sin(self.current_yaw )
+                angular_velocity = (-vel[0] * np.sin(self.current_yaw ) + vel[1] * np.cos(self.current_yaw ))
+                
                 # Normalize the angular velocity to ensure it is in the range [-pi, pi]
+
+                #####################
+                
+
+                # Vx_robot = vel[0] * np.cos(self.current_yaw ) + vel[1] * np.sin(self.current_yaw )
+                # Vy_robot = -vel[0] * np.sin(self.current_yaw ) + vel[1] * np.cos(self.current_yaw )
+                # linear_vel = np.hypot(vel[0], vel[1])  # Equivalent to sqrt(Vx^2 + Vy^2)
+                # angular_vel = np.arctan2(Vy_robot, Vx_robot)
+
+
+
                 angular_vel = (angular_velocity + np.pi) % (2 * np.pi) - np.pi
+
                 self.save_iteration_data(linear_vel_human, vel, self.current_x, self.current_y, self.current_x_human, self.current_y_human)
                 # Publish velocity commands to the robot
                 cmd_msg = Twist()
                 cmd_msg.linear.x = linear_vel  # Use the planned linear velocity
                 cmd_msg.angular.z = angular_vel  # Use the calculated angular velocity
 
-                # self.cmd_vel_pub.publish(cmd_msg)
+                self.cmd_vel_pub.publish(cmd_msg)
 
-                # rospy.loginfo(f"Robot Position: ({self.current_x}, {self.current_y}), Human Position: ({self.human_position.x}, {self.human_position.y})")
-                # rospy.loginfo(f"Linear Velocity: {linear_vel}, Angular Velocity: {angular_vel}")
+                rospy.loginfo(f"Robot Position: ({self.current_x}, {self.current_y}), Human Position: ({self.human_position.x}, {self.human_position.y})")
+                rospy.loginfo(f"Linear Velocity: {linear_vel}, Angular Velocity: {angular_vel}")
                 self.inc += 1
 
                 
@@ -419,7 +427,7 @@ class RobotMPCTrackingController:
                 # self.prev_yaw_human should be defined elsewhere if yaw tracking for the human is needed
 
                 # Uncomment and update these if necessary for tracking velocities
-                # self.prev_linear_vel = linear_vel_robot
+                self.prev_linear_vel = linear_vel_robot
                 self.prev_angular_vel = angular_vel_robot
             # Update previous values for the robot and human
             self.prev_x_human = self.current_x_human
@@ -431,27 +439,29 @@ class RobotMPCTrackingController:
             self.prev_time = current_time
 
 
-    def reset_odometry(self):
-            pub = rospy.Publisher('/mobile_base/odom', Odometry, queue_size=10)
+    # def reset_odometry(self):
+    #         pub = rospy.Publisher('/mobile_base/odom', Odometry, queue_size=10)
             
-            reset_odom = Odometry()
-            reset_odom.pose.pose.position.x = 0.0
-            reset_odom.pose.pose.position.y = 0.0
-            reset_odom.pose.pose.position.z = 0.0
-            reset_odom.pose.pose.orientation.x = 0.0
-            reset_odom.pose.pose.orientation.y = 0.0
-            reset_odom.pose.pose.orientation.z = 0.0
-            reset_odom.pose.pose.orientation.w = 1.0
+    #         reset_odom = Odometry()
+    #         reset_odom.pose.pose.position.x = 0.0
+    #         reset_odom.pose.pose.position.y = 0.0
+    #         reset_odom.pose.pose.position.z = 0.0
+    #         reset_odom.pose.pose.orientation.x = 0.0
+    #         reset_odom.pose.pose.orientation.y = 0.0
+    #         reset_odom.pose.pose.orientation.z = 0.0
+    #         reset_odom.pose.pose.orientation.w = 1.0
             
-            rospy.sleep(1)  # Give some time for the publisher to initialize
-            pub.publish(reset_odom)
-            rospy.loginfo("Odometry reset to (0, 0, 0) with orientation (0, 0, 0, 1).")
+    #         rospy.sleep(1)  # Give some time for the publisher to initialize
+    #         pub.publish(reset_odom)
+    #         rospy.loginfo("Odometry reset to (0, 0, 0) with orientation (0, 0, 0, 1).")
     
 
     def Human_robot_action_planner(self, human_position, robot_position,linear_vel_human):
         constraints = []
-        x_human = human_position.x
-        y_human= human_position.y
+        # x_human = human_position.x
+        # y_human= human_position.y
+        x_human=self.current_x_human
+        y_human=self.current_y_human
         x_robot, y_robot = robot_position
 
         self.u_app_H[:,self.inc]=linear_vel_human.flatten()
@@ -473,8 +483,14 @@ class RobotMPCTrackingController:
 
         # Probability distribution based on human's initial actions or updated actions
         P_xH = self.Probability_distribution_of_human_s_states(u_app_Robot, self.P_t, x_H0, hat_x_R)
+ 
         P_u_H = self.Human_Action_Prediction(x_H0, hat_x_R)
-        self.P_xH_all[self.inc,:,:,:]=P_xH
+        self.P_xH_all=P_xH
+        scsc=(self.P_xH_all)
+        scscsca=self.inc
+        # print(scsc)
+        # P_xH=np.zeros((5,13,13))
+        # P_u_H=np.zeros((5,13,13))
 
         # Human's action update
         if self.inc  == 0:
@@ -495,10 +511,10 @@ class RobotMPCTrackingController:
 
         # Constraints
         def constraint1(u_R):
-            return np.min(u_R) + .30
+            return np.min(u_R) + .30/3
 
         def constraint2(u_R):
-            return .30 - np.max(u_R)
+            return .30/3 - np.max(u_R)
 
         def constraint3(u_R):
             x_pr = self.Abar @ x_R0 + self.Bbar @ u_R.reshape((self.NoI_R * self.Prediction_Horizon, 1))
@@ -506,22 +522,32 @@ class RobotMPCTrackingController:
 
         # Custom constraints based on P_xH
         def custom_constraints(u_R):
-            for t in range(P_xH.shape[0]):
-                matrix = P_xH[t, :, :]
+            constraints = []  # Initialize the constraints list
+            for t in range(P_xH.shape[0]):  # Iterate over time steps
+                matrix = P_xH[t, :, :]  # Human existence probability at time t
                 if np.any(matrix > 0.0):
-                    indices = np.where(matrix > 0.0)
+                    indices = np.where(matrix > 0.0)  # Indices where the probability is non-zero
                     indices = np.array(indices)
                     for tt in range(indices.shape[1]):
                         if matrix[indices[0][tt], indices[1][tt]] > self.P_th:
-                            def constraint_fun(u_R):
+                            # Define a constraint function for each grid point
+                            def constraint_fun(u_R, t=t, tt=tt):
                                 u_R = u_R.reshape((self.NoI_R * self.Prediction_Horizon, 1))
-                                x_pr_t = self.Abar @ x_R0 + self.Bbar @ u_R
-                                Cons = np.linalg.norm(self.Nc[indices[0, tt], indices[1, tt]] - x_pr_t[self.NoI_R * t:self.NoI_R * (t + 1)]) - self.Safe_Distance
+                                x_pr_t = self.Abar @ x_R0 + self.Bbar @ u_R  # Predicted robot position at time t
+                                # Calculate the distance to the grid point
+                                grid_point = self.Nc[indices[0][tt], indices[1][tt]]
+                                # Calculate distance to this grid point and add constraint
+                                Cons = np.linalg.norm(grid_point - x_pr_t[self.NoI_R * t:self.NoI_R * (t + 1)]) - self.Safe_Distance
                                 return Cons
+
+                            # Append this constraint to the constraints list
                             constraints.append({'type': 'ineq', 'fun': constraint_fun})
                         else:
-                            self.P_Col.append(np.array(0.0))
+                            self.P_Col.append(np.array(0.0))  # Store 0.0 if constraint isn't applied
             return constraints
+        
+              # Custom constraints based on P_xH
+        
 
         # Initial guess for optimization
         if self.inc  >= 1:
@@ -537,16 +563,61 @@ class RobotMPCTrackingController:
         else:
             constraints = [{'type': 'ineq', 'fun': constraint1},
                         {'type': 'ineq', 'fun': constraint2}]
-        custom_constraints(initial_u_R)
+        # constraints += custom_constraints(initial_u_R)
+
+
+
+
+
+
+
+
+
+
+
+
+        def pose_constraints(u_R):
+            constraints = []  # Initialize the constraints list
+            
+            # Define a constraint function for each grid point
+            def constraint_fun(u_R):
+                u_R = u_R.reshape((self.NoI_R * self.Prediction_Horizon, 1))
+                x_pr_t = self.Abar @ x_R0 + self.Bbar @ u_R
+                Cons = np.linalg.norm(x_pr_t [self.NoI_R :]- x_H0) - self.Safe_Distance
+                return Cons
+
+            # Append this constraint to the constraints list
+            constraints.append({'type': 'ineq', 'fun': constraint_fun})
+                
+            return constraints
+
+
+
+ 
+
+        if x_R0[1]>=x_H0[1]:
+            
+            constraints = pose_constraints(initial_u_R)
+        else:
+            constraints =[]
+            constraints.clear()
+        constraints.append({'type': 'ineq', 'fun': constraint1})
+        constraints.append({'type': 'ineq', 'fun': constraint2})
+
+        # constraints = pose_constraints(initial_u_R)
 
         # Perform the optimization
-        result = minimize(objective, initial_u_R.flatten(), constraints=constraints, method='SLSQP')
-
+        result = minimize(objective, initial_u_R.flatten(), constraints=constraints)
+        
         # Store the optimized values
         self.optimized_u_R[:, self.inc ] = result.x
         rounded_u_R = self.optimized_u_R[:, self.inc ][:self.NoI_R]
         self.u_app_R[:, self.inc ] = rounded_u_R
 
+
+        x_pr_t = self.Abar @ x_R0 + self.Bbar @ self.optimized_u_R[:, self.inc ].reshape(-1,1)
+        Cons=np.linalg.norm(x_pr_t [self.NoI_R: ]- x_H0) - self.Safe_Distance
+        print(Cons)
         # Update belief
         self.P_t = self.Robot_s_Belief_About_HDA(self.u_app_H[:, self.inc ].reshape(-1, 1), self.P_t, P_u_H)
         self.P_t_all[self.inc ] = self.P_t[1]
@@ -731,7 +802,7 @@ class RobotMPCTrackingController:
                                 P_x_H_k=np.array([P[j-1,np.array(new_cells[n])[0],np.array(new_cells[n])[1]]])
                         
 
-                            P_u_H=self.Human_Action_Prediction(self,x_H0_prob,hat_x_R)
+                            P_u_H=self.Human_Action_Prediction(x_H0_prob,hat_x_R)
                             for i in range(self.betas.shape[0]):
                             
                                 P_x_H_iks.append(P_x_H_k*P_u_H[kx,ky,i]*P_t[i])
