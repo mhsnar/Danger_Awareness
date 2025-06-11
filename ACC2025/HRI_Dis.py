@@ -9,6 +9,9 @@ import time
 import numpy as np
 import cvxpy as cp
 from scipy.optimize import minimize
+from pydub import AudioSegment
+import sounddevice as sd
+
 
 
 class RobotMPCTrackingController:
@@ -30,6 +33,13 @@ class RobotMPCTrackingController:
         # Robot state variables
         self.current_velocity = Twist()  # Stores the latest computed velocity
         
+        # Load MP3 audio and prepare for playback
+        self.audio_data, self.sample_rate = self.load_mp3("alarm.mp3")
+        self.loop_audio = np.tile(self.audio_data, (10, 1)) if self.audio_data.ndim == 2 else np.tile(self.audio_data, 10)
+        self.is_playing = False  # Track playback state
+
+
+       
 
         # Robot Model
         self.n = 500
@@ -39,7 +49,7 @@ class RobotMPCTrackingController:
         self.Human = "Concerned"  # Human could be "Concerned" or "Unconcerned"
 
         self.deltaT = 5
-        self.Safe_Distance = 1
+        self.Safe_Distance = 1.7
         self.A_R = np.array([[1.0, 0.], [0., 1.]])
         self.B_R = np.array([[self.deltaT, 0.0], [0.0, self.deltaT]])
         self.C_R = np.eye(2, 2)
@@ -170,11 +180,11 @@ class RobotMPCTrackingController:
         self.gamma = 1
         self.eta_1 = 1.0
         self.eta_2 = 1.
-        self.theta_1 = np.array([1.0]).reshape(-1, 1)
+        self.theta_1 = np.array([1.03]).reshape(-1, 1)
         self.theta_2 = np.array([1]).reshape(-1, 1)
         self.theta_3 = np.array([2.5]).reshape(-1, 1)
         self.theta_4 = np.array([8.0]).reshape(-1, 1)
-        self.theta_5 = np.array([100]).reshape(-1, 1)
+        self.theta_5 = np.array([100000]).reshape(-1, 1)
         
         self.theta_6 = np.array([1.]).reshape(-1, 1)
         U_H_constraint=np.array([[1], [1]]) 
@@ -287,8 +297,10 @@ class RobotMPCTrackingController:
 
 
     def human_pose_callback(self, msg):
+        
         self.current_x_human = msg.pose.position.x
         self.current_y_human = msg.pose.position.y
+        # self.Human_Velocity =
         #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         min_distance = float('inf')
         rounded_position = None
@@ -348,6 +360,18 @@ class RobotMPCTrackingController:
                  # Call the MPC-based planner to get the linear velocity
                 vel = self.Human_robot_action_planner(self.human_position, (self.current_x, self.current_y), linear_vel_human)
                 # linear_vel = math.sqrt(vel[0]**2 + vel[1]**2)
+                                # >>> ADD AUDIO CONTROL LOGIC HERE <<<
+                if self.P_t[1] <0.5 and not self.is_playing:
+                    sd.play(self.loop_audio, self.sample_rate)
+                    self.is_playing = True
+                    rospy.loginfo("Alarm playing...")
+
+                elif self.P_t[1] >= .5 and self.is_playing:
+                    sd.stop()
+                    self.is_playing = False
+                    rospy.loginfo("Alarm stopped.")
+                # >>> END AUDIO LOGIC <<<
+
                 
                 print(vel)
   
@@ -427,6 +451,7 @@ class RobotMPCTrackingController:
         P_xH = self.Probability_distribution_of_human_s_states(u_app_Robot, self.P_t, x_H0, hat_x_R)
  
         P_u_H = self.Human_Action_Prediction(x_H0, hat_x_R)
+        print(P_u_H)
         self.P_xH_all=P_xH
         scsc=(self.P_xH_all)
         scscsca=self.inc
@@ -436,9 +461,21 @@ class RobotMPCTrackingController:
 
         # Human's action update
         if self.inc  == 0:
-            u_H = self.human_s_action(x_H0, hat_x_R_pr, self.initial_u_H[:self.NoI_H])
+            # u_H = self.human_s_action(x_H0, hat_x_R_pr, self.initial_u_H[:self.NoI_H])
+            u_H=self.initial_u_H[:self.NoI_H]
+           
         else:
-            u_H = self.human_s_action(x_H0, hat_x_R_pr, self.u_app_H[:, self.inc -1])
+            # u_H = self.human_s_action(x_H0, hat_x_R_pr, self.u_app_H[:, self.inc -1])
+
+             # Function to compute the closest value in u_H_values to a given value
+            def find_nearest(value, u_H_value):
+                return u_H_value[np.argmin(np.abs(u_H_value - value))]
+
+            # Vectorize the find_nearest function to apply it to each element in optimal_u_H
+            vectorized_find_nearest = np.vectorize(lambda x: find_nearest(x, self.u_H_value))
+
+            # Apply the vectorized function to each element in optimal_u_H
+            u_H = vectorized_find_nearest(self.u_app_H[:, self.inc ])
 
         self.u_app_H[:, self.inc ] = u_H[:self.NoI_H].flatten()
 
@@ -569,62 +606,24 @@ class RobotMPCTrackingController:
         return linear_vel
 
         
-    def human_s_action(self,x_H0,hat_x_R, u_H0):
-        # Objective function to minimize
-        def objective(u_H_flattened):
-            u_H = u_H_flattened.reshape(self.NoI_R * self.Prediction_Horizon_H, 1)  # Reshape back to 2D for computation
-            x_pr_H = self.Abar_H @ x_H0 + self.Bbar_H @ u_H
-            
-            # QH_g term
-            norm_x_H_g_H = np.linalg.norm(x_pr_H - self.g_H_pr) ** 2
-            norm_u_H = np.linalg.norm(u_H) ** 2
-            QH_g = self.theta_3 * norm_x_H_g_H + self.theta_4 * norm_u_H
-
-            # QH_s term
-            norm_expr = np.linalg.norm(x_pr_H - hat_x_R)
-            QH_s = self.theta_5 * np.exp(-self.theta_6 * norm_expr ** 2)
-
-            # Total sigma_H        
-            sigma_H = self.eta_1 * QH_g + self.beta * self.eta_2 * QH_s
-
-            return float(sigma_H)  # Ensure the returned value is a scalar
-
-        # Constraints
-        def constraint1(u_H_flattened):
-            u_H = u_H_flattened.reshape(self.NoI_H * self.Prediction_Horizon_H, 1)
-            return (u_H + self.U_H_constraints).flatten()  # Flatten for compatibility
-
-        def constraint2(u_H_flattened):
-            u_H = u_H_flattened.reshape(self.NoI_H * self.Prediction_Horizon_H, 1)
-            return (self.U_H_constraints - u_H).flatten()  # Flatten for compatibility
-
-        # Define constraints as a dictionary
-        constraints = [{'type': 'ineq', 'fun': constraint1},
-                    {'type': 'ineq', 'fun': constraint2}]
+    # def human_s_action(self,x_H0,hat_x_R, optimal_u_H):
+    #     # Objective function to minimize
         
-        # Flatten the initial guess just for the solver
-        # u_H0_flattened = u_H0.flatten()
-    
-    
-            # initial_u_R=u_app_R[:, i-1]
-        u_H0_flattened=np.tile(u_H0, (self.Prediction_Horizon, 1)).flatten()
-        # Optimize using scipy's minimize function
-        solution = minimize(objective, u_H0_flattened, method='trust-constr', constraints=constraints)
         
-        # Extract the optimal value of u_H and reshape it back to 2D
-        optimal_u_H = solution.x.reshape(self.NoI_H * self.Prediction_Horizon_H, 1)
+    #     # Extract the optimal value of u_H and reshape it back to 2D
+    #     optimal_u_H = ([[optimal_u_H], [optimal_u_H]])
 
-        # Function to compute the closest value in u_H_values to a given value
-        def find_nearest(value, u_H_value):
-            return u_H_value[np.argmin(np.abs(u_H_value - value))]
+    #     # Function to compute the closest value in u_H_values to a given value
+    #     def find_nearest(value, u_H_value):
+    #         return u_H_value[np.argmin(np.abs(u_H_value - value))]
 
-        # Vectorize the find_nearest function to apply it to each element in optimal_u_H
-        vectorized_find_nearest = np.vectorize(lambda x: find_nearest(x, self.u_H_value))
+    #     # Vectorize the find_nearest function to apply it to each element in optimal_u_H
+    #     vectorized_find_nearest = np.vectorize(lambda x: find_nearest(x, self.u_H_value))
 
-        # Apply the vectorized function to each element in optimal_u_H
-        rounded_optimal_u_H = vectorized_find_nearest(optimal_u_H)
+    #     # Apply the vectorized function to each element in optimal_u_H
+    #     rounded_optimal_u_H = vectorized_find_nearest(optimal_u_H)
 
-        return rounded_optimal_u_H
+    #     return rounded_optimal_u_H
 
 
     # Human Action Prediction
@@ -660,6 +659,7 @@ class RobotMPCTrackingController:
         U_H=self.u_H_values.shape[0]*self.u_H_values.shape[1]
         P_r=1/U_H
         P_u_H=(1-self.w_H) * P_d+self.w_H * P_r
+        
         return P_u_H
     
     def human_s_goal(self,u_H,x_H0):
@@ -679,7 +679,18 @@ class RobotMPCTrackingController:
     def Robot_s_Belief_About_HDA(self,u_H,P_t,P_u_H):
         sum_P_P_t=0.0
         P_ti=np.zeros((self.betas.shape[0],1))
+###########################################################################################################################################
+        # Function to compute the closest value in u_H_values to a given value
+        def find_nearest(value, u_H_value):
+            return u_H_value[np.argmin(np.abs(u_H_value - value))]
 
+        # Vectorize the find_nearest function to apply it to each element in optimal_u_H
+        vectorized_find_nearest = np.vectorize(lambda x: find_nearest(x, self.u_H_value))
+
+        # Apply the vectorized function to each element in optimal_u_H
+        u_H = vectorized_find_nearest(u_H)
+        print('u_H',u_H)
+###################################################################################################################################
         # Find the index where u_H matches one of the arrays in u_H_values
         def find_index(u_H_values, u_H):
             for i in range(u_H_values.shape[0]):
@@ -695,7 +706,12 @@ class RobotMPCTrackingController:
             P_ti[i]=P_u_H[index[0],index[1],i]*P_t[i]
 
         P_t=P_ti/sum_P_P_t
-
+         
+        
+        print('index=',index)
+        print('sum_P_P_t=',sum_P_P_t)
+        print('P_ti=',P_ti)
+        print('P_t=',P_t)
         return P_t
 
     # Probability distribution of the human’s states
@@ -806,6 +822,22 @@ class RobotMPCTrackingController:
         while not rospy.is_shutdown():
             self.rate.sleep()
 
+    def load_mp3(self, file_path):
+   
+
+        audio = AudioSegment.from_mp3(file_path).set_channels(1)  # mono
+        audio_data = np.array(audio.get_array_of_samples()).astype(np.float32)
+        audio_data /= np.iinfo(audio.array_type).max  # normalize to [-1, 1]
+        return audio_data, audio.frame_rate
+
+
+    # def load_mp3(file_path):
+    #     audio = AudioSegment.from_file(file_path, format="mp3")
+    #     samples = np.array(audio.get_array_of_samples())
+    #     if audio.channels == 2:
+    #         samples = samples.reshape((-1, 2))
+    #     samples = samples.astype(np.float32) / (2 ** 15)
+    #     return samples, audio.frame_rate
 
 
 if __name__ == '__main__':
